@@ -196,6 +196,7 @@ install(DIRECTORY launch rviz DESTINATION share/${PROJECT_NAME})
 
 install(PROGRAMS
   scripts/test_rviz2_markers.py 
+  scripts/uav_keyboard_teleop.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

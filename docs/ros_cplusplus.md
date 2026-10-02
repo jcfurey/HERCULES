@@ -157,6 +157,29 @@ ros2 service call /airsim_node/SimpleFlight/land \
 
 To return to the car, stop the UAV simulator and bridge and use the car settings and RViz commands above.
 
+#### Keyboard flight
+
+With the UAV airborne and the bridge running, use terminal keyboard controls:
+
+```shell
+source install/setup.bash &&
+  ros2 run airsim_ros_pkgs uav_keyboard_teleop.py
+```
+
+Keep that terminal focused while flying. Controls follow the drone's heading:
+
+| Keys | Action |
+| --- | --- |
+| W / S | Forward / backward |
+| A / D | Left / right |
+| R / F | Up / down |
+| Q / E | Turn left / right |
+| Space | Stop and hover |
+| G | Land and exit |
+| X or Ctrl-C | Exit and leave the drone hovering |
+
+Hold a movement key to keep moving. Commands stop within 0.6 seconds of releasing the key. The defaults are 0.8 m/s horizontally, 0.5 m/s vertically, and 30 degrees/s turning; adjust them with `--speed`, `--vertical-speed`, and `--yaw-rate`. This controller uses the existing ROS bridge and needs no additional Python packages. Use the same ROS domain and middleware settings as the bridge and RViz.
+
 ## Using HERCULES ROS wrapper
 
 The ROS wrapper is composed of two ROS nodes - the first is a wrapper over HERCULES's multirotor C++ client library, and the second is a simple PD position controller.
