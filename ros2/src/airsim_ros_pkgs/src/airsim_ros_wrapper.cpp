@@ -1,4 +1,5 @@
 #include <airsim_ros_wrapper.h>
+#include "sensors/distance/DistanceSimpleParams.hpp"
 #include "common/AirSimSettings.hpp"
 #include <tf2_sensor_msgs/tf2_sensor_msgs.hpp>
 
@@ -266,7 +267,7 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
                             const std::string camera_info_topic = camera_topic_prefix + "/camera_info";
                             image_pub_vec_.push_back(image_transporter.advertise(image_topic, 1));
                             cam_info_pub_vec_.push_back(nh_->create_publisher<sensor_msgs::msg::CameraInfo>(camera_info_topic, 10));
-                            camera_info_msg_vec_.push_back(generate_cam_info(curr_camera_name, camera_setting, capture_setting));
+                            camera_info_msg_vec_.push_back(generate_cam_info(curr_vehicle_name + "/" + curr_camera_name, camera_setting, capture_setting));
                         }
                     }else{
                         if (curr_image_type == ImageType::DepthPlanar || curr_image_type == ImageType::DepthPerspective || curr_image_type == ImageType::DepthVis || curr_image_type == ImageType::DisparityNormalized) {
@@ -280,7 +281,7 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
                         const std::string camera_info_topic = camera_topic_prefix + "/camera_info";
                         image_pub_vec_.push_back(image_transporter.advertise(image_topic, 1));
                         cam_info_pub_vec_.push_back(nh_->create_publisher<sensor_msgs::msg::CameraInfo>(camera_info_topic, 10));
-                        camera_info_msg_vec_.push_back(generate_cam_info(curr_camera_name, camera_setting, capture_setting));
+                        camera_info_msg_vec_.push_back(generate_cam_info(curr_vehicle_name + "/" + curr_camera_name, camera_setting, capture_setting));
                     }                    
                 }
             }
@@ -324,6 +325,16 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
                     SensorPublisher<sensor_msgs::msg::Range> sensor_publisher =
                         create_sensor_publisher<sensor_msgs::msg::Range>("Distance sensor", sensor_setting->sensor_name, sensor_setting->sensor_type, curr_vehicle_name + "/distance/" + sensor_name, 10);
                     vehicle_ros->distance_pubs_.emplace_back(sensor_publisher);
+                    msr::airlib::DistanceSimpleParams distance_params;
+                    distance_params.initializeFromSettings(*static_cast<msr::airlib::AirSimSettings::DistanceSetting*>(sensor_setting.get()));
+                    geometry_msgs::msg::TransformStamped distance_tf;
+                    distance_tf.header.stamp = nh_->now();
+                    distance_tf.header.frame_id = vehicle_ros->odom_frame_id_;
+                    distance_tf.child_frame_id = curr_vehicle_name + "/" + sensor_name;
+                    distance_tf.transform = get_transform_msg_from_airsim(
+                        distance_params.relative_pose.position, distance_params.relative_pose.orientation);
+                    convert_tf_msg_to_ros(distance_tf);
+                    vehicle_ros->static_tf_msg_vec_.emplace_back(distance_tf);
                     break;
                 }
                 case SensorBase::SensorType::Lidar: {
@@ -1469,32 +1480,32 @@ void AirsimROSWrapper::publish_vehicle_state()
         for (auto& sensor_publisher : vehicle_ros->barometer_pubs_) {
             auto baro_data = airsim_client_->getBarometerData(sensor_publisher.sensor_name, vehicle_ros->vehicle_name_);
             airsim_interfaces::msg::Altimeter alt_msg = get_altimeter_msg_from_airsim(baro_data);
-            alt_msg.header.frame_id = vehicle_ros->vehicle_name_;
+            alt_msg.header.frame_id = vehicle_ros->odom_frame_id_;
             sensor_publisher.publisher->publish(alt_msg);
         }
 
         for (auto& sensor_publisher : vehicle_ros->imu_pubs_) {
             auto imu_data = airsim_client_->getImuData(sensor_publisher.sensor_name, vehicle_ros->vehicle_name_);
             sensor_msgs::msg::Imu imu_msg = get_imu_msg_from_airsim(imu_data);
-            imu_msg.header.frame_id = vehicle_ros->vehicle_name_;
+            imu_msg.header.frame_id = vehicle_ros->odom_frame_id_;
             sensor_publisher.publisher->publish(imu_msg);
         }
         for (auto& sensor_publisher : vehicle_ros->distance_pubs_) {
             auto distance_data = airsim_client_->getDistanceSensorData(sensor_publisher.sensor_name, vehicle_ros->vehicle_name_);
             sensor_msgs::msg::Range dist_msg = get_range_from_airsim(distance_data);
-            dist_msg.header.frame_id = vehicle_ros->vehicle_name_;
+            dist_msg.header.frame_id = vehicle_ros->vehicle_name_ + "/" + sensor_publisher.sensor_name;
             sensor_publisher.publisher->publish(dist_msg);
         }
         for (auto& sensor_publisher : vehicle_ros->gps_pubs_) {
             auto gps_data = airsim_client_->getGpsData(sensor_publisher.sensor_name, vehicle_ros->vehicle_name_);
             sensor_msgs::msg::NavSatFix gps_msg = get_gps_msg_from_airsim(gps_data);
-            gps_msg.header.frame_id = vehicle_ros->vehicle_name_;
+            gps_msg.header.frame_id = vehicle_ros->odom_frame_id_;
             sensor_publisher.publisher->publish(gps_msg);
         }
         for (auto& sensor_publisher : vehicle_ros->magnetometer_pubs_) {
             auto mag_data = airsim_client_->getMagnetometerData(sensor_publisher.sensor_name, vehicle_ros->vehicle_name_);
             sensor_msgs::msg::MagneticField mag_msg = get_mag_msg_from_airsim(mag_data);
-            mag_msg.header.frame_id = vehicle_ros->vehicle_name_;
+            mag_msg.header.frame_id = vehicle_ros->odom_frame_id_;
             sensor_publisher.publisher->publish(mag_msg);
         }
 
@@ -1684,8 +1695,19 @@ void AirsimROSWrapper::append_static_camera_tf(VehicleROS* vehicle_ros, const st
         static_cam_tf_body_msg.header.frame_id = vehicle_ros->vehicle_name_ + "/" + odom_frame_id_;
     static_cam_tf_body_msg.child_frame_id = vehicle_ros->vehicle_name_ + "/" + camera_name + "_body";
 
-    auto camera_info_data = airsim_client_images_.simGetCameraInfo(camera_name, vehicle_ros->vehicle_name_);
-    static_cam_tf_body_msg.transform = get_transform_msg_from_airsim(camera_info_data.pose.position, camera_info_data.pose.orientation);
+    if (camera_setting.external) {
+        const auto camera_info = airsim_client_images_.simGetCameraInfo(camera_name, vehicle_ros->vehicle_name_);
+        static_cam_tf_body_msg.transform = get_transform_msg_from_airsim(camera_info.pose.position, camera_info.pose.orientation);
+    }
+    else {
+        // Attached camera settings are vehicle-relative. Some packaged simulators
+        // report world poses through simGetCameraInfo, which would apply the vehicle pose twice.
+        const auto rotation = msr::airlib::VectorMath::toQuaternion(
+            msr::airlib::Utils::degreesToRadians(camera_setting.rotation.pitch),
+            msr::airlib::Utils::degreesToRadians(camera_setting.rotation.roll),
+            msr::airlib::Utils::degreesToRadians(camera_setting.rotation.yaw));
+        static_cam_tf_body_msg.transform = get_transform_msg_from_airsim(camera_setting.position, rotation);
+    }
 
     convert_tf_msg_to_ros(static_cam_tf_body_msg);
 

@@ -22,7 +22,7 @@ find_package(PCL REQUIRED)
 include_directories(${PCL_INCLUDE_DIRS})
 
 find_package(ament_cmake_auto REQUIRED)
-ament_auto_find_build_dependencies()
+ament_auto_find_build_dependencies(REQUIRED octomap_msgs)
 find_package(OCTOMAP REQUIRED)
 
 ament_auto_add_library(octomap_server_static SHARED

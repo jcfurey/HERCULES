@@ -11,7 +11,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake_auto REQUIRED)
-ament_auto_find_build_dependencies()
+ament_auto_find_build_dependencies(REQUIRED octomap_msgs)
 
 # Use the Qt major version rviz_common was built with (Qt5 on Jazzy, Qt6 on
 # Lyrical), even when the other Qt's development files are installed too.
