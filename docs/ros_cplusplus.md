@@ -1,15 +1,15 @@
 # airsim_ros_pkgs
 
 A ROS2 wrapper over the HERCULES C++ client library. All coordinates and data are in the right-handed coordinate frame of the ROS standard and not in NED except for geo points.
-The following was tested on Ubuntu 22.04 with ROS2 Iron.
+The workspace builds on ROS 2 Jazzy (Ubuntu 24.04) and ROS 2 Lyrical (Ubuntu 26.04).
 
 ## Build
 
 - Build HERCULES as per the instructions.
 
-- Make sure that you have set up the environment variables for ROS. Add the `source` command to your `.bashrc` for convenience (replace `iron` with specific version name) -
+- Make sure that you have set up the environment variables for ROS. Add the `source` command to your `.bashrc` for convenience (replace `jazzy` with your distro, e.g. `lyrical`) -
 ```shell
-echo "source /opt/ros/iron/setup.bash" >> ~/.bashrc
+echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -19,7 +19,7 @@ source ~/.bashrc
 apt-get install python3-rosdep
 sudo rosdep init
 rosdep update
-rosdep install --from-paths src -y --ignore-src --skip-keys pcl --skip-keys message_runtime --skip-keys message_generation
+rosdep install --from-paths src -y --ignore-src
 ```
 
 - Build ROS package
