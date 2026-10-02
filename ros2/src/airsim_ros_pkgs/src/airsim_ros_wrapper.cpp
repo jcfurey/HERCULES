@@ -476,15 +476,13 @@ const SensorPublisher<T> AirsimROSWrapper::create_sensor_publisher(const std::st
 // todo: error check. if state is not landed, return error.
 bool AirsimROSWrapper::takeoff_srv_cb(std::shared_ptr<airsim_interfaces::srv::Takeoff::Request> request, std::shared_ptr<airsim_interfaces::srv::Takeoff::Response> response, const std::string& vehicle_name)
 {
-    unused(response);
     std::lock_guard<std::mutex> guard(control_mutex_);
-
+    auto* client = static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get());
+    client->takeoffAsync(20, vehicle_name);
     if (request->wait_on_last_task)
-        static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())->takeoffAsync(20, vehicle_name)->waitOnLastTask(); // todo value for timeout_sec?
-    // response->success =
+        client->waitOnLastTask(&response->success);
     else
-        static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())->takeoffAsync(20, vehicle_name);
-    // response->success =
+        response->success = true; // The command was submitted; completion is asynchronous.
 
     return true;
 }
@@ -563,15 +561,15 @@ bool AirsimROSWrapper::object_transforms_refresh_cb(const std::shared_ptr<airsim
 
 bool AirsimROSWrapper::land_srv_cb(std::shared_ptr<airsim_interfaces::srv::Land::Request> request, std::shared_ptr<airsim_interfaces::srv::Land::Response> response, const std::string& vehicle_name)
 {
-    unused(response);
     std::lock_guard<std::mutex> guard(control_mutex_);
-
+    auto* client = static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get());
+    client->landAsync(60, vehicle_name);
     if (request->wait_on_last_task)
-        static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())->landAsync(60, vehicle_name)->waitOnLastTask();
+        client->waitOnLastTask(&response->success);
     else
-        static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())->landAsync(60, vehicle_name);
+        response->success = true; // The command was submitted; completion is asynchronous.
 
-    return true; //todo
+    return true;
 }
 
 bool AirsimROSWrapper::land_group_srv_cb(std::shared_ptr<airsim_interfaces::srv::LandGroup::Request> request, std::shared_ptr<airsim_interfaces::srv::LandGroup::Response> response)

@@ -110,6 +110,53 @@ RViz displays the LiDAR cloud, front RGB and depth images, IMU axes and accelera
 
 Each camera image topic has a corresponding `camera_info` topic. The bridge's control timer republishes IMU, GPS, and the other scalar sensors at 100 Hz by default; their measurement timestamps indicate when the simulator produced new samples. Camera and LiDAR request intervals are configurable through the launch arguments shown above.
 
+### Blocks UAV with sensors
+
+The same packaged Blocks environment supports the SimpleFlight multirotor. `ros2/settings/blocks_uav_sensors.json` selects it automatically and enables the same camera and sensor streams as the car profile. The cameras sit 0.5 metres forward of the drone centre, the LiDAR sits 0.8 metres above it to clear the propellers, and its vertical field of view extends down to -45 degrees to see the ground in flight.
+
+Stop the existing simulator and bridge, then run these commands in separate terminals from `HERCULES/ros2`.
+
+Start the UAV simulator:
+
+```shell
+bash ../docker/Blocks_packaged_Linux_52_32/Linux/Blocks.sh \
+  -settings="$(pwd)/settings/blocks_uav_sensors.json" \
+  -windowed -ResX=1280 -ResY=720
+```
+
+Start the bridge with API control enabled. This enables API control and arms the simulated UAV:
+
+```shell
+source install/setup.bash &&
+  ros2 launch airsim_ros_pkgs airsim_node.launch.py \
+    host_ip:=127.0.0.1 enable_api_control:=True \
+    image_update_interval:=0.1 lidar_update_interval:=0.1 \
+    enable_object_transforms_list:=False
+```
+
+Open the UAV view:
+
+```shell
+source install/setup.bash &&
+  rviz2 -d rviz2_configs/blocks_uav.rviz
+```
+
+The view follows `SimpleFlight/odom_local`, with sensor topics below `/airsim_node/SimpleFlight/`. Use the same ROS domain and middleware settings in each terminal. Once the bridge has initialized, take off from another sourced terminal:
+
+```shell
+ros2 service call /airsim_node/SimpleFlight/takeoff \
+  airsim_interfaces/srv/Takeoff "{wait_on_last_task: false}"
+```
+
+The drone climbs and holds position. With `wait_on_last_task: false`, the service's `success` field reports command submission and returns before flight completes. With `true`, it reports the simulator's task result. In the packaged Blocks 5.2-v3.2 demo, a waited takeoff was observed to climb about 1.5 metres and hold position but return `success: false` after its 20-second task timeout. Use the asynchronous command above and check the odometry in RViz to confirm flight. Land with:
+
+```shell
+ros2 service call /airsim_node/SimpleFlight/land \
+  airsim_interfaces/srv/Land "{wait_on_last_task: true}"
+```
+
+To return to the car, stop the UAV simulator and bridge and use the car settings and RViz commands above.
+
 ## Using HERCULES ROS wrapper
 
 The ROS wrapper is composed of two ROS nodes - the first is a wrapper over HERCULES's multirotor C++ client library, and the second is a simple PD position controller.
