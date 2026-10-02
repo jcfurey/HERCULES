@@ -123,7 +123,11 @@ def main():
         while not node.ready() and time.monotonic() < end:
             rclpy.spin_once(node, timeout_sec=0.1)
         if not node.ready():
-            raise RuntimeError("No UAV bridge found; check the vehicle name and ROS domain.")
+            raise RuntimeError(
+                "No active UAV bridge for " + args.vehicle + ". "
+                "Check the airsim_node terminal for a crash and restart the bridge; "
+                "also verify the vehicle name and ROS domain."
+            )
         connected = True
         print(
             "Ready. Keep this terminal focused. The UAV should already be airborne.\n"

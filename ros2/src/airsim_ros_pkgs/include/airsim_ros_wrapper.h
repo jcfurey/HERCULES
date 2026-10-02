@@ -226,7 +226,7 @@ private:
         rclcpp::Publisher<airsim_interfaces::msg::CarState>::SharedPtr car_state_pub_;
         airsim_interfaces::msg::CarState car_state_msg_;
 
-        bool has_car_cmd_;
+        bool has_car_cmd_ = false;
         msr::airlib::CarApiBase::CarControls car_cmd_;
     };
 
@@ -251,7 +251,7 @@ private:
         rclcpp::Service<airsim_interfaces::srv::Takeoff>::SharedPtr takeoff_srvr_;
         rclcpp::Service<airsim_interfaces::srv::Land>::SharedPtr land_srvr_;
 
-        bool has_vel_cmd_;
+        bool has_vel_cmd_ = false;
         VelCmd vel_cmd_;
     };
 
@@ -408,14 +408,19 @@ private:
     std::shared_ptr<rclcpp::Node> nh_gpulidar_;
     std::shared_ptr<rclcpp::Node> nh_echo_;
     std::shared_ptr<rclcpp::CallbackGroup> cb_;
+    std::shared_ptr<rclcpp::CallbackGroup> image_callback_group_;
+    std::shared_ptr<rclcpp::CallbackGroup> lidar_callback_group_;
+    std::shared_ptr<rclcpp::CallbackGroup> gpulidar_callback_group_;
+    std::shared_ptr<rclcpp::CallbackGroup> echo_callback_group_;
 
     // todo not sure if async spinners should be inside this class, or should be instantiated in airsim_node.cpp, and cb queues should be public
     // todo for multiple drones with multiple sensors, this won't scale. make it a part of VehicleROS?
 
     std::mutex control_mutex_;
+    std::mutex vehicle_state_mutex_;
 
     // gimbal control
-    bool has_gimbal_cmd_;
+    bool has_gimbal_cmd_ = false;
     GimbalCmd gimbal_cmd_;
 
     /// ROS tf

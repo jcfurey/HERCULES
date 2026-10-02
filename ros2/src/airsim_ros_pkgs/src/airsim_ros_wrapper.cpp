@@ -52,6 +52,10 @@ AirsimROSWrapper::AirsimROSWrapper(const std::shared_ptr<rclcpp::Node> nh, const
     , nh_gpulidar_(nh_gpulidar)
     , nh_echo_(nh_echo)
     , cb_(callbackGroup)
+    , image_callback_group_(nh_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive))
+    , lidar_callback_group_(nh_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive))
+    , gpulidar_callback_group_(nh_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive))
+    , echo_callback_group_(nh_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive))
     , publish_clock_(false)
 {
     ros_clock_.clock = rclcpp::Time(0);
@@ -428,7 +432,7 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
         double update_airsim_img_response_every_n_sec;
         nh_->get_parameter("update_airsim_img_response_every_n_sec", update_airsim_img_response_every_n_sec);
 
-        airsim_img_response_timer_ = nh_img_->create_wall_timer(std::chrono::duration<double>(update_airsim_img_response_every_n_sec), std::bind(&AirsimROSWrapper::img_response_timer_cb, this), cb_);
+        airsim_img_response_timer_ = nh_img_->create_wall_timer(std::chrono::duration<double>(update_airsim_img_response_every_n_sec), std::bind(&AirsimROSWrapper::img_response_timer_cb, this), image_callback_group_);
         is_used_img_timer_cb_queue_ = true;
     }
 
@@ -436,20 +440,20 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
     if (lidar_cnt > 0) {
         double update_lidar_every_n_sec;
         nh_->get_parameter("update_lidar_every_n_sec", update_lidar_every_n_sec);
-        airsim_lidar_update_timer_ = nh_lidar_->create_wall_timer(std::chrono::duration<double>(update_lidar_every_n_sec), std::bind(&AirsimROSWrapper::lidar_timer_cb, this), cb_);
+        airsim_lidar_update_timer_ = nh_lidar_->create_wall_timer(std::chrono::duration<double>(update_lidar_every_n_sec), std::bind(&AirsimROSWrapper::lidar_timer_cb, this), lidar_callback_group_);
         is_used_lidar_timer_cb_queue_ = true;
     }
     if (gpulidar_cnt > 0) {
         double update_gpulidar_every_n_sec;
         nh_->get_parameter("update_gpulidar_every_n_sec", update_gpulidar_every_n_sec);
-        airsim_gpulidar_update_timer_ = nh_gpulidar_->create_wall_timer(std::chrono::duration<double>(update_gpulidar_every_n_sec), std::bind(&AirsimROSWrapper::gpulidar_timer_cb, this), cb_);
+        airsim_gpulidar_update_timer_ = nh_gpulidar_->create_wall_timer(std::chrono::duration<double>(update_gpulidar_every_n_sec), std::bind(&AirsimROSWrapper::gpulidar_timer_cb, this), gpulidar_callback_group_);
         is_used_gpulidar_timer_cb_queue_ = true;
     }
 
     if (echo_cnt > 0) {
         double update_echo_every_n_sec;
         nh_->get_parameter("update_echo_every_n_sec", update_echo_every_n_sec);
-        airsim_echo_update_timer_ = nh_echo_->create_wall_timer(std::chrono::duration<double>(update_echo_every_n_sec), std::bind(&AirsimROSWrapper::echo_timer_cb, this), cb_);
+        airsim_echo_update_timer_ = nh_echo_->create_wall_timer(std::chrono::duration<double>(update_echo_every_n_sec), std::bind(&AirsimROSWrapper::echo_timer_cb, this), echo_callback_group_);
         is_used_echo_timer_cb_queue_ = true;
     }
 
@@ -653,6 +657,7 @@ msr::airlib::Pose AirsimROSWrapper::get_airlib_pose(const float& x, const float&
 void AirsimROSWrapper::vel_cmd_body_frame_cb(const airsim_interfaces::msg::VelCmd::SharedPtr msg, const std::string& vehicle_name)
 {
     std::lock_guard<std::mutex> guard(control_mutex_);
+    std::lock_guard<std::mutex> state_guard(vehicle_state_mutex_);
 
     auto drone = static_cast<MultiRotorROS*>(vehicle_name_ptr_map_[vehicle_name].get());
     drone->vel_cmd_ = get_airlib_body_vel_cmd(*msg, drone->curr_drone_state_.kinematics_estimated.pose.orientation);
@@ -662,6 +667,7 @@ void AirsimROSWrapper::vel_cmd_body_frame_cb(const airsim_interfaces::msg::VelCm
 void AirsimROSWrapper::vel_cmd_group_body_frame_cb(const airsim_interfaces::msg::VelCmdGroup::SharedPtr msg)
 {
     std::lock_guard<std::mutex> guard(control_mutex_);
+    std::lock_guard<std::mutex> state_guard(vehicle_state_mutex_);
 
     for (const auto& vehicle_name : msg->vehicle_names) {
         auto drone = static_cast<MultiRotorROS*>(vehicle_name_ptr_map_[vehicle_name].get());
@@ -673,6 +679,7 @@ void AirsimROSWrapper::vel_cmd_group_body_frame_cb(const airsim_interfaces::msg:
 void AirsimROSWrapper::vel_cmd_all_body_frame_cb(const airsim_interfaces::msg::VelCmd::SharedPtr msg)
 {
     std::lock_guard<std::mutex> guard(control_mutex_);
+    std::lock_guard<std::mutex> state_guard(vehicle_state_mutex_);
 
     // todo expose wait_on_last_task or nah?
     for (auto& vehicle_name_ptr_pair : vehicle_name_ptr_map_) {
@@ -1349,6 +1356,10 @@ void AirsimROSWrapper::drone_state_timer_cb()
         std::string msg = e.get_error().as<std::string>();
         RCLCPP_ERROR(nh_->get_logger(), "Exception raised by the API:\n%s", msg.c_str());
     }
+    catch (const rpc::timeout& e) {
+        RCLCPP_WARN_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 5000,
+                            "Simulator state request timed out; retrying: %s", e.what());
+    }
 }
 
 void AirsimROSWrapper::update_and_publish_static_transforms(VehicleROS* vehicle_ros)
@@ -1382,7 +1393,12 @@ rclcpp::Time AirsimROSWrapper::update_state()
         if (airsim_mode_ == AIRSIM_MODE::DRONE) {
             auto drone = static_cast<MultiRotorROS*>(vehicle_ros.get());
             auto rpc = static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get());
-            drone->curr_drone_state_ = rpc->getMultirotorState(vehicle_ros->vehicle_name_);
+            auto drone_state = rpc->getMultirotorState(vehicle_ros->vehicle_name_);
+            {
+                // Body-frame command callbacks also read the cached orientation.
+                std::lock_guard<std::mutex> state_guard(vehicle_state_mutex_);
+                drone->curr_drone_state_ = std::move(drone_state);
+            }
 
             vehicle_time = rclcpp::Time(drone->curr_drone_state_.timestamp);
             if (!got_sim_time) {
@@ -1739,6 +1755,10 @@ void AirsimROSWrapper::img_response_timer_cb()
         std::string msg = e.get_error().as<std::string>();
         RCLCPP_ERROR(nh_->get_logger(), "Exception raised by the API, didn't get image response.\n%s", msg.c_str());
     }
+    catch (const rpc::timeout& e) {
+        RCLCPP_WARN_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 5000,
+                            "Simulator image request timed out; retrying: %s", e.what());
+    }
 }
 
 void AirsimROSWrapper::lidar_timer_cb()
@@ -1772,6 +1792,10 @@ void AirsimROSWrapper::lidar_timer_cb()
         std::string msg = e.get_error().as<std::string>();
         RCLCPP_ERROR(nh_->get_logger(), "Exception raised by the API, didn't get lidar response.\n%s", msg.c_str());
     }
+    catch (const rpc::timeout& e) {
+        RCLCPP_WARN_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 5000,
+                            "Simulator LiDAR request timed out; retrying: %s", e.what());
+    }
 }
 
 void AirsimROSWrapper::gpulidar_timer_cb()
@@ -1790,6 +1814,10 @@ void AirsimROSWrapper::gpulidar_timer_cb()
     catch (rpc::rpc_error& e) {
         std::string msg = e.get_error().as<std::string>();
         RCLCPP_ERROR(nh_->get_logger(), "Exception raised by the API, didn't get gpulidar response.\n%s", msg.c_str());
+    }
+    catch (const rpc::timeout& e) {
+        RCLCPP_WARN_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 5000,
+                            "Simulator GPU LiDAR request timed out; retrying: %s", e.what());
     }
 }
 
@@ -1849,6 +1877,10 @@ void AirsimROSWrapper::echo_timer_cb()
     catch (rpc::rpc_error& e) {
         std::string msg = e.get_error().as<std::string>();
         RCLCPP_ERROR(nh_->get_logger(), "Exception raised by the API, didn't get echo response.\n%s", msg.c_str());
+    }
+    catch (const rpc::timeout& e) {
+        RCLCPP_WARN_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 5000,
+                            "Simulator echo request timed out; retrying: %s", e.what());
     }
 }
 

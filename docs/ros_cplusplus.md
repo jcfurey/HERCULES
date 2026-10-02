@@ -180,6 +180,8 @@ Keep that terminal focused while flying. Controls follow the drone's heading:
 
 Hold a movement key to keep moving. Commands stop within 0.6 seconds of releasing the key. The defaults are 0.8 m/s horizontally, 0.5 m/s vertically, and 30 degrees/s turning; adjust them with `--speed`, `--vertical-speed`, and `--yaw-rate`. This controller uses the existing ROS bridge and needs no additional Python packages. Use the same ROS domain and middleware settings as the bridge and RViz.
 
+If the keyboard controller reports no active UAV bridge, check the bridge terminal for errors. The simulator window can remain open after the ROS bridge has exited. Restart the bridge using the command above and wait for `AirsimROSWrapper Initialized!` before starting the controller again.
+
 ## Using HERCULES ROS wrapper
 
 The ROS wrapper is composed of two ROS nodes - the first is a wrapper over HERCULES's multirotor C++ client library, and the second is a simple PD position controller.
