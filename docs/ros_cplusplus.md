@@ -178,7 +178,7 @@ Keep that terminal focused while flying. Controls follow the drone's heading:
 | G | Land and exit |
 | X or Ctrl-C | Exit and leave the drone hovering |
 
-Hold a movement key to keep moving. Commands stop within 0.6 seconds of releasing the key. The defaults are 0.8 m/s horizontally, 0.5 m/s vertically, and 30 degrees/s turning; adjust them with `--speed`, `--vertical-speed`, and `--yaw-rate`. This controller uses the existing ROS bridge and needs no additional Python packages. Use the same ROS domain and middleware settings as the bridge and RViz.
+Hold a movement key to keep moving. Commands stop within 0.6 seconds of releasing the key. The defaults are 0.8 m/s horizontally, 0.5 m/s vertically, and 30 degrees/s turning; adjust them with `--speed`, `--vertical-speed`, and `--yaw-rate`. This controller uses the existing ROS bridge and needs no additional Python packages. Use the same ROS domain and middleware settings as the bridge and RViz. To fly a drone of a Hero-mode team through `hercules_node`, add `--bridge hercules`; see [Running a UAV–UGV Team](hero_team_quickstart.md#fly-the-drones-from-ros-2).
 
 If the keyboard controller reports no active UAV bridge, check the bridge terminal for errors. The simulator window can remain open after the ROS bridge has exited. Restart the bridge using the command above and wait for `AirsimROSWrapper Initialized!` before starting the controller again.
 

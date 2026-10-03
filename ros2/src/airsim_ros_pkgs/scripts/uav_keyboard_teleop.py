@@ -39,14 +39,23 @@ def keyboard():
         termios.tcsetattr(descriptor, termios.TCSADRAIN, original)
 
 
+# Topic namespace and odometry topic of each bridge: airsim_node, or the Hero-mode
+# hercules_node that hercules_hero_team.launch.py starts.
+BRIDGES = {
+    "airsim": ("/airsim_node/", "/odom_local"),
+    "hercules": ("/hercules_node/", "/ground_truth/odom_local"),
+}
+
+
 class KeyboardFlight(Node):
-    def __init__(self, vehicle):
+    def __init__(self, vehicle, bridge="airsim"):
         super().__init__("uav_keyboard_teleop")
-        base = "/airsim_node/" + vehicle
+        namespace, odometry_topic = BRIDGES[bridge]
+        base = namespace + vehicle
         self.last_odometry = None
         self.publisher = self.create_publisher(VelCmd, base + "/vel_cmd_body_frame", 1)
         self.subscription = self.create_subscription(
-            Odometry, base + "/odom_local", self.receive_odometry, qos_profile_sensor_data
+            Odometry, base + odometry_topic, self.receive_odometry, qos_profile_sensor_data
         )
         self.land_client = self.create_client(Land, base + "/land")
 
@@ -92,6 +101,8 @@ class KeyboardFlight(Node):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--vehicle", default="SimpleFlight")
+    parser.add_argument("--bridge", choices=sorted(BRIDGES), default="airsim",
+                        help="airsim_node (default) or the Hero-mode hercules_node")
     parser.add_argument("--speed", type=positive_float, default=0.8, help="horizontal speed in m/s")
     parser.add_argument("--vertical-speed", type=positive_float, default=0.5, help="vertical speed in m/s")
     parser.add_argument("--yaw-rate", type=positive_float, default=30, help="turn rate in degrees/s")
@@ -114,7 +125,7 @@ def main():
 
     signal.signal(signal.SIGINT, interrupt_once)
     rclpy.init(args=ros_args, signal_handler_options=SignalHandlerOptions.NO)
-    node = KeyboardFlight(args.vehicle)
+    node = KeyboardFlight(args.vehicle, args.bridge)
     should_land = False
     connected = False
     try:
@@ -125,7 +136,7 @@ def main():
         if not node.ready():
             raise RuntimeError(
                 "No active UAV bridge for " + args.vehicle + ". "
-                "Check the airsim_node terminal for a crash and restart the bridge; "
+                "Check the " + args.bridge + " bridge terminal for a crash and restart the bridge; "
                 "also verify the vehicle name and ROS domain."
             )
         connected = True

@@ -10,8 +10,8 @@ On top of concurrent operation, HERCULES adds the components needed to make larg
 
 - **Unified waypoint-level command interface.** UGVs are commanded through the same high-level waypoint interface as UAVs, so exploration and coordination research can target both platforms with one API.
 - **Autonomous waypoint-tracking UGV controller.** A novel controller drives the ground vehicles along generated trajectories, mirroring the UAV interface.
-- **End-to-end planning pipeline.** Offline trajectory generation produces kinodynamically feasible motion for both platforms, including complementary **coverage** and **leader–follower** trajectory patterns for dataset collection.
-- **Coordinated multi-robot sensor logging.** Synchronized, per-robot logging of all sensor streams across the team.
+- **End-to-end planning pipeline.** Offline trajectory generation produces kinodynamically feasible motion for both platforms, including complementary **coverage** and **leader–follower** trajectory patterns for dataset collection. See [Or plan the trajectories](hero_team_quickstart.md#6-or-plan-the-trajectories).
+- **Coordinated multi-robot sensor logging.** Synchronized, per-robot logging of all sensor streams across the team. See [Generate a dataset](hero_team_quickstart.md#8-generate-a-dataset).
 
 ![Heterogeneous team in the forest](media/forestdeer_uavugv1.gif)
 

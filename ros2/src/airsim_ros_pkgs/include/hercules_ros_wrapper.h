@@ -259,7 +259,7 @@ private:
         rclcpp::Service<airsim_interfaces::srv::Takeoff>::SharedPtr takeoff_srvr_;
         rclcpp::Service<airsim_interfaces::srv::Land>::SharedPtr land_srvr_;
 
-        bool has_vel_cmd_;
+        bool has_vel_cmd_ = false;
         VelCmd vel_cmd_;
     };
 
@@ -280,6 +280,8 @@ private:
 
     void vel_cmd_all_world_frame_cb(const airsim_interfaces::msg::VelCmd::SharedPtr msg);
     void vel_cmd_all_body_frame_cb(const airsim_interfaces::msg::VelCmd::SharedPtr msg);
+    // The named drone of this bridge, or nullptr (with a warning) for any other name.
+    MultiRotorROS *find_drone_for_command(const std::string &vehicle_name);
 
     // void vel_cmd_body_frame_cb(const airsim_interfaces::msg::VelCmd& msg, const std::string& vehicle_name);
     void gimbal_angle_quat_cmd_cb(const airsim_interfaces::msg::GimbalAngleQuatCmd::SharedPtr gimbal_angle_quat_cmd_msg);
@@ -424,6 +426,8 @@ private:
     // todo for multiple drones with multiple sensors, this won't scale. make it a part of VehicleROS?
 
     std::mutex control_mutex_;
+    // Guards curr_drone_state_, which body-frame velocity callbacks read.
+    std::mutex vehicle_state_mutex_;
 
     bool init_odom_received_ = false;          // becomes true after first odom‐tick
     nav_msgs::msg::Odometry init_odom_msg_;   // stores that very‐first Odometry

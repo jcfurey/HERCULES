@@ -257,11 +257,11 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
             // bind to a single callback. todo optimal subs queue length
             // bind multiple topics to a single callback, but keep track of which vehicle name it was by passing curr_vehicle_name as the 2nd argument
 
-            // std::function<void(const airsim_interfaces::msg::VelCmd::SharedPtr)> fcn_vel_cmd_body_frame_sub = std::bind(&AirsimROSWrapper::vel_cmd_body_frame_cb, this, _1, vehicle_ros->vehicle_name_);
-            // drone->vel_cmd_body_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmd>(topic_prefix + "/vel_cmd_body_frame", 1, fcn_vel_cmd_body_frame_sub); // todo ros::TransportHints().tcpNoDelay();
+            std::function<void(const airsim_interfaces::msg::VelCmd::SharedPtr)> fcn_vel_cmd_body_frame_sub = std::bind(&AirsimROSWrapper::vel_cmd_body_frame_cb, this, _1, vehicle_ros->vehicle_name_);
+            drone->vel_cmd_body_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmd>(topic_prefix + "/vel_cmd_body_frame", 1, fcn_vel_cmd_body_frame_sub); // todo ros::TransportHints().tcpNoDelay();
 
-            // std::function<void(const airsim_interfaces::msg::VelCmd::SharedPtr)> fcn_vel_cmd_world_frame_sub = std::bind(&AirsimROSWrapper::vel_cmd_world_frame_cb, this, _1, vehicle_ros->vehicle_name_);
-            // drone->vel_cmd_world_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmd>(topic_prefix + "/vel_cmd_world_frame", 1, fcn_vel_cmd_world_frame_sub);
+            std::function<void(const airsim_interfaces::msg::VelCmd::SharedPtr)> fcn_vel_cmd_world_frame_sub = std::bind(&AirsimROSWrapper::vel_cmd_world_frame_cb, this, _1, vehicle_ros->vehicle_name_);
+            drone->vel_cmd_world_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmd>(topic_prefix + "/vel_cmd_world_frame", 1, fcn_vel_cmd_world_frame_sub);
 
             std::function<bool(std::shared_ptr<airsim_interfaces::srv::Takeoff::Request>, std::shared_ptr<airsim_interfaces::srv::Takeoff::Response>)> fcn_takeoff_srvr = std::bind(&AirsimROSWrapper::takeoff_srv_cb, this, _1, _2, vehicle_ros->vehicle_name_);
             drone->takeoff_srvr_ = nh_->create_service<airsim_interfaces::srv::Takeoff>(topic_prefix + "/takeoff", fcn_takeoff_srvr);
@@ -494,11 +494,11 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
         takeoff_all_srvr_ = nh_->create_service<airsim_interfaces::srv::Takeoff>(topic_ns_ + "/all_robots/takeoff", std::bind(&AirsimROSWrapper::takeoff_all_srv_cb, this, _1, _2));
         land_all_srvr_ = nh_->create_service<airsim_interfaces::srv::Land>(topic_ns_ + "/all_robots/land", std::bind(&AirsimROSWrapper::land_all_srv_cb, this, _1, _2));
 
-        // vel_cmd_all_body_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmd>("~/all_robots/vel_cmd_body_frame", 1, std::bind(&AirsimROSWrapper::vel_cmd_all_body_frame_cb, this, _1));
-        // vel_cmd_all_world_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmd>("~/all_robots/vel_cmd_world_frame", 1, std::bind(&AirsimROSWrapper::vel_cmd_all_world_frame_cb, this, _1));
+        vel_cmd_all_body_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmd>(topic_ns_ + "/all_robots/vel_cmd_body_frame", 1, std::bind(&AirsimROSWrapper::vel_cmd_all_body_frame_cb, this, _1));
+        vel_cmd_all_world_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmd>(topic_ns_ + "/all_robots/vel_cmd_world_frame", 1, std::bind(&AirsimROSWrapper::vel_cmd_all_world_frame_cb, this, _1));
 
-        // vel_cmd_group_body_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmdGroup>("~/group_of_robots/vel_cmd_body_frame", 1, std::bind(&AirsimROSWrapper::vel_cmd_group_body_frame_cb, this, _1));
-        // vel_cmd_group_world_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmdGroup>("~/group_of_robots/vel_cmd_world_frame", 1, std::bind(&AirsimROSWrapper::vel_cmd_group_world_frame_cb, this, _1));
+        vel_cmd_group_body_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmdGroup>(topic_ns_ + "/group_of_robots/vel_cmd_body_frame", 1, std::bind(&AirsimROSWrapper::vel_cmd_group_body_frame_cb, this, _1));
+        vel_cmd_group_world_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmdGroup>(topic_ns_ + "/group_of_robots/vel_cmd_world_frame", 1, std::bind(&AirsimROSWrapper::vel_cmd_group_world_frame_cb, this, _1));
 
         takeoff_group_srvr_ = nh_->create_service<airsim_interfaces::srv::TakeoffGroup>(topic_ns_ + "/group_of_robots/takeoff", std::bind(&AirsimROSWrapper::takeoff_group_srv_cb, this, _1, _2));
         land_group_srvr_ = nh_->create_service<airsim_interfaces::srv::LandGroup>(topic_ns_ + "/group_of_robots/land", std::bind(&AirsimROSWrapper::land_group_srv_cb, this, _1, _2));
@@ -782,9 +782,21 @@ msr::airlib::Pose AirsimROSWrapper::get_airlib_pose(const float &x, const float 
     return msr::airlib::Pose(msr::airlib::Vector3r(x, y, z), airlib_quat);
 }
 
+AirsimROSWrapper::MultiRotorROS *AirsimROSWrapper::find_drone_for_command(const std::string &vehicle_name)
+{
+    const auto it = vehicle_name_ptr_map_.find(vehicle_name);
+    if (it == vehicle_name_ptr_map_.end())
+    {
+        RCLCPP_WARN_THROTTLE(nh_->get_logger(), *nh_->get_clock(), 5000, "Ignoring velocity command for %s: not a drone of this bridge", vehicle_name.c_str());
+        return nullptr;
+    }
+    return static_cast<MultiRotorROS *>(it->second.get());
+}
+
 void AirsimROSWrapper::vel_cmd_body_frame_cb(const airsim_interfaces::msg::VelCmd::SharedPtr msg, const std::string &vehicle_name)
 {
     std::lock_guard<std::mutex> guard(control_mutex_);
+    std::lock_guard<std::mutex> state_guard(vehicle_state_mutex_);
 
     auto drone = static_cast<MultiRotorROS *>(vehicle_name_ptr_map_[vehicle_name].get());
     drone->vel_cmd_ = get_airlib_body_vel_cmd(*msg, drone->curr_drone_state_.kinematics_estimated.pose.orientation);
@@ -794,10 +806,13 @@ void AirsimROSWrapper::vel_cmd_body_frame_cb(const airsim_interfaces::msg::VelCm
 void AirsimROSWrapper::vel_cmd_group_body_frame_cb(const airsim_interfaces::msg::VelCmdGroup::SharedPtr msg)
 {
     std::lock_guard<std::mutex> guard(control_mutex_);
+    std::lock_guard<std::mutex> state_guard(vehicle_state_mutex_);
 
     for (const auto &vehicle_name : msg->vehicle_names)
     {
-        auto drone = static_cast<MultiRotorROS *>(vehicle_name_ptr_map_[vehicle_name].get());
+        auto drone = find_drone_for_command(vehicle_name);
+        if (!drone)
+            continue;
         drone->vel_cmd_ = get_airlib_body_vel_cmd(msg->vel_cmd, drone->curr_drone_state_.kinematics_estimated.pose.orientation);
         drone->has_vel_cmd_ = true;
     }
@@ -806,6 +821,7 @@ void AirsimROSWrapper::vel_cmd_group_body_frame_cb(const airsim_interfaces::msg:
 void AirsimROSWrapper::vel_cmd_all_body_frame_cb(const airsim_interfaces::msg::VelCmd::SharedPtr msg)
 {
     std::lock_guard<std::mutex> guard(control_mutex_);
+    std::lock_guard<std::mutex> state_guard(vehicle_state_mutex_);
 
     // todo expose wait_on_last_task or nah?
     for (auto &vehicle_name_ptr_pair : vehicle_name_ptr_map_)
@@ -832,7 +848,9 @@ void AirsimROSWrapper::vel_cmd_group_world_frame_cb(const airsim_interfaces::msg
 
     for (const auto &vehicle_name : msg->vehicle_names)
     {
-        auto drone = static_cast<MultiRotorROS *>(vehicle_name_ptr_map_[vehicle_name].get());
+        auto drone = find_drone_for_command(vehicle_name);
+        if (!drone)
+            continue;
         drone->vel_cmd_ = get_airlib_world_vel_cmd(msg->vel_cmd);
         drone->has_vel_cmd_ = true;
     }
@@ -1564,7 +1582,12 @@ rclcpp::Time AirsimROSWrapper::update_state()
         {
             auto drone = static_cast<MultiRotorROS *>(vehicle_ros.get());
             auto rpc = static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get());
-            drone->curr_drone_state_ = rpc->getMultirotorState(vehicle_ros->vehicle_name_);
+            auto drone_state = rpc->getMultirotorState(vehicle_ros->vehicle_name_);
+            {
+                // Body-frame command callbacks also read the cached orientation.
+                std::lock_guard<std::mutex> state_guard(vehicle_state_mutex_);
+                drone->curr_drone_state_ = std::move(drone_state);
+            }
 
             vehicle_time = rclcpp::Time(drone->curr_drone_state_.timestamp);
             if (!got_sim_time)
