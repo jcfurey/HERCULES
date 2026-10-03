@@ -437,6 +437,9 @@ private:
     std::string world_frame_id_ = AIRSIM_FRAME_ID;
     const std::string AIRSIM_ODOM_FRAME_ID = "odom_local";
     std::string odom_frame_id_ = AIRSIM_ODOM_FRAME_ID;
+    // Prefix for every topic/service; "~" (default) is this node's own name. Two bridges with
+    // different node names can share one prefix, e.g. the Hero UAV and UGV bridges.
+    std::string topic_ns_ = "~";
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_pub_;
 

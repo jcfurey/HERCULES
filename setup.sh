@@ -49,11 +49,18 @@ else # linux
         clang_version='12'
         cpp_version='10'
     fi
-    sudo apt-get install -y \
-        clang-$clang_version \
-        libc++-$clang_version-dev \
-        libc++abi-$clang_version-dev \
-        libstdc++-$cpp_version-dev
+    # Ubuntu 24.04 and newer no longer package clang-12; there AirLib is built with
+    # Unreal Engine's bundled toolchain instead (./build.sh --ue-root <UE dir>).
+    if [ -n "$(apt-cache madison clang-$clang_version 2>/dev/null)" ]; then
+        sudo apt-get install -y \
+            clang-$clang_version \
+            libc++-$clang_version-dev \
+            libc++abi-$clang_version-dev \
+            libstdc++-$cpp_version-dev
+    else
+        echo "clang-$clang_version is not available on this Ubuntu release; skipping it."
+        echo "Build with Unreal Engine's toolchain: ./build.sh --ue-root /path/to/UnrealEngine"
+    fi
 fi
 
 if ! which cmake; then

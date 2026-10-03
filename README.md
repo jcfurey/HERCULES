@@ -121,6 +121,8 @@ colcon build
 source install/setup.bash
 ```
 
+To run drones and Huskies together in one simulation, with recorded trajectories replayed by the waypoint controllers, see [Running a UAV–UGV Team](docs/hero_team_quickstart.md).
+
 ---
 
 ## Environments

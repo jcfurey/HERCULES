@@ -140,6 +140,7 @@ void AirsimROSWrapper::initialize_ros()
     nh_->get_parameter("publish_clock", publish_clock_);
     nh_->get_parameter_or("world_frame_id", world_frame_id_, world_frame_id_);
     nh_->get_parameter_or("odom_frame_id", odom_frame_id_, odom_frame_id_);
+    nh_->get_parameter_or("topic_namespace", topic_ns_, topic_ns_);
     vel_cmd_duration_ = 0.05; // todo rosparam
     // todo enforce dynamics constraints in this node as well?
     // nh_->get_parameter("max_vert_vel_", max_vert_vel_);
@@ -155,7 +156,7 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
     // subscribe to control commands on global nodehandle
     // gimbal_angle_quat_cmd_sub_ = nh_->create_subscription<airsim_interfaces::msg::GimbalAngleQuatCmd>("~/gimbal_angle_quat_cmd", 50, std::bind(&AirsimROSWrapper::gimbal_angle_quat_cmd_cb, this, _1));
     // gimbal_angle_euler_cmd_sub_ = nh_->create_subscription<airsim_interfaces::msg::GimbalAngleEulerCmd>("~/gimbal_angle_euler_cmd", 50, std::bind(&AirsimROSWrapper::gimbal_angle_euler_cmd_cb, this, _1));
-    origin_geo_point_pub_ = nh_->create_publisher<airsim_interfaces::msg::GPSYaw>("~/origin_geo_point", 10);
+    origin_geo_point_pub_ = nh_->create_publisher<airsim_interfaces::msg::GPSYaw>(topic_ns_ + "/origin_geo_point", 10);
 
     airsim_img_request_vehicle_name_pair_vec_.clear();
     image_pub_vec_.clear();
@@ -226,7 +227,7 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
 
         append_static_vehicle_tf(vehicle_ros.get(), *vehicle_setting);
 
-        const std::string topic_prefix = "~/" + curr_vehicle_name;
+        const std::string topic_prefix = topic_ns_ + "/" + curr_vehicle_name;
         // vehicle_ros->odom_local_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>(topic_prefix + "/" + odom_frame_id_, 10);
         vehicle_ros->odom_local_pub_ = nh_->create_publisher<nav_msgs::msg::Odometry>(topic_prefix + "/ground_truth/" + odom_frame_id_, 10);
 
@@ -236,14 +237,14 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
 
         auto qos_settings = rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable();
 
-        vehicle_ros->instance_segmentation_pub_ = nh_->create_publisher<airsim_interfaces::msg::InstanceSegmentationList>("~/instance_segmentation_labels", qos_settings);
+        vehicle_ros->instance_segmentation_pub_ = nh_->create_publisher<airsim_interfaces::msg::InstanceSegmentationList>(topic_ns_ + "/instance_segmentation_labels", qos_settings);
 
         std::function<bool(std::shared_ptr<airsim_interfaces::srv::RefreshInstanceSegmentation::Request>, std::shared_ptr<airsim_interfaces::srv::RefreshInstanceSegmentation::Response>)> fcn_ins_seg_refresh_srvr = std::bind(&AirsimROSWrapper::instance_segmentation_refresh_cb, this, _1, _2);
         vehicle_ros->instance_segmentation_refresh_srvr_ = nh_->create_service<airsim_interfaces::srv::RefreshInstanceSegmentation>(topic_prefix + "/instance_segmentation_refresh", fcn_ins_seg_refresh_srvr);
 
         if (enable_object_transforms_list_)
         {
-            vehicle_ros->object_transforms_pub_ = nh_->create_publisher<airsim_interfaces::msg::ObjectTransformsList>("~/object_transforms", qos_settings);
+            vehicle_ros->object_transforms_pub_ = nh_->create_publisher<airsim_interfaces::msg::ObjectTransformsList>(topic_ns_ + "/object_transforms", qos_settings);
 
             std::function<bool(std::shared_ptr<airsim_interfaces::srv::RefreshObjectTransforms::Request>, std::shared_ptr<airsim_interfaces::srv::RefreshObjectTransforms::Response>)> fcn_obj_trans_refresh_srvr = std::bind(&AirsimROSWrapper::object_transforms_refresh_cb, this, _1, _2);
             vehicle_ros->object_transforms_refresh_srvr_ = nh_->create_service<airsim_interfaces::srv::RefreshObjectTransforms>(topic_prefix + "/object_transforms_refresh", fcn_obj_trans_refresh_srvr);
@@ -490,8 +491,8 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
     // add takeoff and land all services if more than 2 drones. NOTE by SSG: skipping this in Hero mode
     if (vehicle_name_ptr_map_.size() > 1 && airsim_mode_ == AIRSIM_MODE::DRONE)
     {
-        takeoff_all_srvr_ = nh_->create_service<airsim_interfaces::srv::Takeoff>("~/all_robots/takeoff", std::bind(&AirsimROSWrapper::takeoff_all_srv_cb, this, _1, _2));
-        land_all_srvr_ = nh_->create_service<airsim_interfaces::srv::Land>("~/all_robots/land", std::bind(&AirsimROSWrapper::land_all_srv_cb, this, _1, _2));
+        takeoff_all_srvr_ = nh_->create_service<airsim_interfaces::srv::Takeoff>(topic_ns_ + "/all_robots/takeoff", std::bind(&AirsimROSWrapper::takeoff_all_srv_cb, this, _1, _2));
+        land_all_srvr_ = nh_->create_service<airsim_interfaces::srv::Land>(topic_ns_ + "/all_robots/land", std::bind(&AirsimROSWrapper::land_all_srv_cb, this, _1, _2));
 
         // vel_cmd_all_body_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmd>("~/all_robots/vel_cmd_body_frame", 1, std::bind(&AirsimROSWrapper::vel_cmd_all_body_frame_cb, this, _1));
         // vel_cmd_all_world_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmd>("~/all_robots/vel_cmd_world_frame", 1, std::bind(&AirsimROSWrapper::vel_cmd_all_world_frame_cb, this, _1));
@@ -499,12 +500,12 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
         // vel_cmd_group_body_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmdGroup>("~/group_of_robots/vel_cmd_body_frame", 1, std::bind(&AirsimROSWrapper::vel_cmd_group_body_frame_cb, this, _1));
         // vel_cmd_group_world_frame_sub_ = nh_->create_subscription<airsim_interfaces::msg::VelCmdGroup>("~/group_of_robots/vel_cmd_world_frame", 1, std::bind(&AirsimROSWrapper::vel_cmd_group_world_frame_cb, this, _1));
 
-        takeoff_group_srvr_ = nh_->create_service<airsim_interfaces::srv::TakeoffGroup>("~/group_of_robots/takeoff", std::bind(&AirsimROSWrapper::takeoff_group_srv_cb, this, _1, _2));
-        land_group_srvr_ = nh_->create_service<airsim_interfaces::srv::LandGroup>("~/group_of_robots/land", std::bind(&AirsimROSWrapper::land_group_srv_cb, this, _1, _2));
+        takeoff_group_srvr_ = nh_->create_service<airsim_interfaces::srv::TakeoffGroup>(topic_ns_ + "/group_of_robots/takeoff", std::bind(&AirsimROSWrapper::takeoff_group_srv_cb, this, _1, _2));
+        land_group_srvr_ = nh_->create_service<airsim_interfaces::srv::LandGroup>(topic_ns_ + "/group_of_robots/land", std::bind(&AirsimROSWrapper::land_group_srv_cb, this, _1, _2));
     }
 
     // todo add per vehicle reset in AirLib API
-    reset_srvr_ = nh_->create_service<airsim_interfaces::srv::Reset>("~/reset", std::bind(&AirsimROSWrapper::reset_srv_cb, this, _1, _2));
+    reset_srvr_ = nh_->create_service<airsim_interfaces::srv::Reset>(topic_ns_ + "/reset", std::bind(&AirsimROSWrapper::reset_srv_cb, this, _1, _2));
 
     if (publish_clock_)
     {
@@ -578,7 +579,7 @@ const SensorPublisher<T> AirsimROSWrapper::create_sensor_publisher(const std::st
     SensorPublisher<T> sensor_publisher;
     sensor_publisher.sensor_name = sensor_name;
     sensor_publisher.sensor_type = sensor_type;
-    sensor_publisher.publisher = nh_->create_publisher<T>("~/" + topic_name, QoS);
+    sensor_publisher.publisher = nh_->create_publisher<T>(topic_ns_ + "/" + topic_name, QoS);
     return sensor_publisher;
 }
 
