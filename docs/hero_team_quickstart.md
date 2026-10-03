@@ -187,6 +187,7 @@ The drones take off, fly their recorded paths at 0.75 m/s and 4 m above the star
 | Setting | Example |
 | --- | --- |
 | Trajectory folder | `WAYPOINT_DIR=/path/to/trajectories` |
+| Simulator address, for a simulator on another machine | `HERCULES_HOST=192.168.1.20` |
 | Drone speed and altitude (NED, negative is up) | `WAYPOINT_VELOCITY=1.5 FLY_ALTITUDE=-6` |
 | Fly each waypoint's recorded altitude | `USE_WAYPOINT_Z=true` |
 | Return to the start before landing | `DISABLE_RETURN_HOME=false` |
