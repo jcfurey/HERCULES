@@ -603,53 +603,44 @@ void AirsimROSWrapper::imu_timer_cb()
     }
 }
 
+// Takes off or lands each vehicle in turn. When waiting, the result is whether every vehicle's
+// task completed; otherwise the commands were submitted and complete asynchronously.
+static bool takeoff_or_land(msr::airlib::MultirotorRpcLibClient *client, const std::vector<std::string> &vehicle_names, bool takeoff, bool wait_on_last_task)
+{
+    bool success = true;
+    for (const auto &vehicle_name : vehicle_names) {
+        auto *task = takeoff ? client->takeoffAsync(20, vehicle_name) : client->landAsync(60, vehicle_name);
+        if (wait_on_last_task) {
+            bool task_success = false;
+            task->waitOnLastTask(&task_success);
+            success = success && task_success;
+        }
+    }
+    return success;
+}
+
 // todo: error check. if state is not landed, return error.
 bool AirsimROSWrapper::takeoff_srv_cb(std::shared_ptr<airsim_interfaces::srv::Takeoff::Request> request, std::shared_ptr<airsim_interfaces::srv::Takeoff::Response> response, const std::string &vehicle_name)
 {
-    unused(response);
     std::lock_guard<std::mutex> guard(control_mutex_);
-
-    if (request->wait_on_last_task)
-        static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get())->takeoffAsync(20, vehicle_name)->waitOnLastTask(); // todo value for timeout_sec?
-    // response->success =
-    else
-        static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get())->takeoffAsync(20, vehicle_name);
-    // response->success =
-
+    response->success = takeoff_or_land(static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get()), {vehicle_name}, true, request->wait_on_last_task);
     return true;
 }
 
 bool AirsimROSWrapper::takeoff_group_srv_cb(std::shared_ptr<airsim_interfaces::srv::TakeoffGroup::Request> request, std::shared_ptr<airsim_interfaces::srv::TakeoffGroup::Response> response)
 {
-    unused(response);
     std::lock_guard<std::mutex> guard(control_mutex_);
-
-    if (request->wait_on_last_task)
-        for (const auto &vehicle_name : request->vehicle_names)
-            static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get())->takeoffAsync(20, vehicle_name)->waitOnLastTask(); // todo value for timeout_sec?
-    // response->success =
-    else
-        for (const auto &vehicle_name : request->vehicle_names)
-            static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get())->takeoffAsync(20, vehicle_name);
-    // response->success =
-
+    response->success = takeoff_or_land(static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get()), request->vehicle_names, true, request->wait_on_last_task);
     return true;
 }
 
 bool AirsimROSWrapper::takeoff_all_srv_cb(std::shared_ptr<airsim_interfaces::srv::Takeoff::Request> request, std::shared_ptr<airsim_interfaces::srv::Takeoff::Response> response)
 {
-    unused(response);
     std::lock_guard<std::mutex> guard(control_mutex_);
-
-    if (request->wait_on_last_task)
-        for (const auto &vehicle_name_ptr_pair : vehicle_name_ptr_map_)
-            static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get())->takeoffAsync(20, vehicle_name_ptr_pair.first)->waitOnLastTask(); // todo value for timeout_sec?
-    // response->success =
-    else
-        for (const auto &vehicle_name_ptr_pair : vehicle_name_ptr_map_)
-            static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get())->takeoffAsync(20, vehicle_name_ptr_pair.first);
-    // response->success =
-
+    std::vector<std::string> vehicle_names;
+    for (const auto &vehicle_name_ptr_pair : vehicle_name_ptr_map_)
+        vehicle_names.push_back(vehicle_name_ptr_pair.first);
+    response->success = takeoff_or_land(static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get()), vehicle_names, true, request->wait_on_last_task);
     return true;
 }
 
@@ -693,45 +684,26 @@ bool AirsimROSWrapper::object_transforms_refresh_cb(const std::shared_ptr<airsim
 
 bool AirsimROSWrapper::land_srv_cb(std::shared_ptr<airsim_interfaces::srv::Land::Request> request, std::shared_ptr<airsim_interfaces::srv::Land::Response> response, const std::string &vehicle_name)
 {
-    unused(response);
     std::lock_guard<std::mutex> guard(control_mutex_);
-
-    if (request->wait_on_last_task)
-        static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get())->landAsync(60, vehicle_name)->waitOnLastTask();
-    else
-        static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get())->landAsync(60, vehicle_name);
-
-    return true; // todo
+    response->success = takeoff_or_land(static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get()), {vehicle_name}, false, request->wait_on_last_task);
+    return true;
 }
 
 bool AirsimROSWrapper::land_group_srv_cb(std::shared_ptr<airsim_interfaces::srv::LandGroup::Request> request, std::shared_ptr<airsim_interfaces::srv::LandGroup::Response> response)
 {
-    unused(response);
     std::lock_guard<std::mutex> guard(control_mutex_);
-
-    if (request->wait_on_last_task)
-        for (const auto &vehicle_name : request->vehicle_names)
-            static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get())->landAsync(60, vehicle_name)->waitOnLastTask();
-    else
-        for (const auto &vehicle_name : request->vehicle_names)
-            static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get())->landAsync(60, vehicle_name);
-
-    return true; // todo
+    response->success = takeoff_or_land(static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get()), request->vehicle_names, false, request->wait_on_last_task);
+    return true;
 }
 
 bool AirsimROSWrapper::land_all_srv_cb(std::shared_ptr<airsim_interfaces::srv::Land::Request> request, std::shared_ptr<airsim_interfaces::srv::Land::Response> response)
 {
-    unused(response);
     std::lock_guard<std::mutex> guard(control_mutex_);
-
-    if (request->wait_on_last_task)
-        for (const auto &vehicle_name_ptr_pair : vehicle_name_ptr_map_)
-            static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get())->landAsync(60, vehicle_name_ptr_pair.first)->waitOnLastTask();
-    else
-        for (const auto &vehicle_name_ptr_pair : vehicle_name_ptr_map_)
-            static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get())->landAsync(60, vehicle_name_ptr_pair.first);
-
-    return true; // todo
+    std::vector<std::string> vehicle_names;
+    for (const auto &vehicle_name_ptr_pair : vehicle_name_ptr_map_)
+        vehicle_names.push_back(vehicle_name_ptr_pair.first);
+    response->success = takeoff_or_land(static_cast<msr::airlib::MultirotorRpcLibClient *>(airsim_client_.get()), vehicle_names, false, request->wait_on_last_task);
+    return true;
 }
 
 // todo add reset by vehicle_name API to airlib

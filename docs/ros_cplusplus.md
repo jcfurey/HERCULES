@@ -148,7 +148,7 @@ ros2 service call /airsim_node/SimpleFlight/takeoff \
   airsim_interfaces/srv/Takeoff "{wait_on_last_task: false}"
 ```
 
-The drone climbs and holds position. With `wait_on_last_task: false`, the service's `success` field reports command submission and returns before flight completes. With `true`, it reports the simulator's task result. In the packaged Blocks 5.2-v3.2 demo, a waited takeoff was observed to climb about 1.5 metres and hold position but return `success: false` after its 20-second task timeout. Use the asynchronous command above and check the odometry in RViz to confirm flight. Land with:
+The drone climbs and holds position. With `wait_on_last_task: false`, the service's `success` field reports command submission and returns before flight completes. With `true`, it waits for the takeoff and reports whether it completed. The packaged Cosys-AirSim Blocks demo reports `success: false` even when the drone has climbed and holds position, because its AirLib treats a move that stops within the drone's distance accuracy of the target as unfinished; simulators built from HERCULES report it correctly. With the demo, use the asynchronous command above and check the odometry in RViz to confirm flight. Land with:
 
 ```shell
 ros2 service call /airsim_node/SimpleFlight/land \
