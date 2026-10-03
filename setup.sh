@@ -145,19 +145,19 @@ fi # End USB setup, CMake install
 
 
 # Download rpclib
-if [ ! -d "external/rpclib/rpclib-2.3.0" ]; then
+if [ ! -d "external/rpclib/rpclib-2.3.1" ]; then
     echo "*********************************************************************************************"
     echo "Downloading rpclib..."
     echo "*********************************************************************************************"
 
-    wget https://github.com/rpclib/rpclib/archive/v2.3.0.zip
+    wget https://github.com/WouterJansen/rpclib/archive/refs/tags/v2.3.1.zip
 
     # remove previous versions
     rm -rf "external/rpclib"
 
     mkdir -p "external/rpclib"
-    unzip -q v2.3.0.zip -d external/rpclib
-    rm v2.3.0.zip
+    unzip -q v2.3.1.zip -d external/rpclib
+    rm v2.3.1.zip
 fi
 
 # Download high-polycount SUV model
@@ -193,7 +193,7 @@ echo "Installing Eigen library..."
 
 if [ ! -d "AirLib/deps/eigen3" ]; then
     echo "Downloading Eigen..."
-    wget -O eigen3.zip https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip
+    wget -O eigen3.zip https://github.com/WouterJansen/eigen/archive/refs/tags/3.4.1r.zip
     unzip -q eigen3.zip -d temp_eigen
     mkdir -p AirLib/deps/eigen3
     mv temp_eigen/eigen*/Eigen AirLib/deps/eigen3

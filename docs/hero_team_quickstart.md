@@ -7,7 +7,7 @@ Hero mode is part of the HERCULES Unreal plugin. The upstream Cosys-AirSim packa
 ## Requirements
 
 - Linux with an NVIDIA GPU and driver.
-- [Unreal Engine 5.2.1](install_linux.md#install-unreal-engine).
+- [Unreal Engine 5.8](install_linux.md#install-unreal-engine) on Linux, or on [Windows](install_windows.md) with the ROS 2 bridges in WSL 2 (see [Simulator on Windows, ROS 2 in WSL](#simulator-on-windows-ros-2-in-wsl)).
 - ROS 2 Jazzy on Ubuntu 24.04 or ROS 2 Lyrical on Ubuntu 26.04, for the ROS 2 bridges.
 
 Run the commands below from the HERCULES repository root unless a step says otherwise. Replace `/path/to/UnrealEngine` with the folder that contains `Engine/`.
@@ -23,10 +23,10 @@ Run the commands below from the HERCULES repository root unless a step says othe
 
 ## 2. Create the Blocks project
 
-The repository holds the Blocks configuration and code, but not `Blocks.uproject` or its `Content/`. Copy them from Cosys-AirSim 5.2-v3.2, the Unreal Engine 5.2 release HERCULES builds on:
+The repository holds the Blocks configuration and code, but not `Blocks.uproject` or its `Content/`. Copy them from Cosys-AirSim 5.8-v3.5.0, the Unreal Engine 5.8 release:
 
 ```bash
-git clone --depth 1 --branch 5.2-v3.2 --filter=blob:none --sparse \
+git clone --depth 1 --branch 5.8-v3.5.0 --filter=blob:none --sparse \
   https://github.com/Cosys-Lab/Cosys-AirSim /tmp/cosys-blocks
 git -C /tmp/cosys-blocks sparse-checkout set Unreal/Environments/Blocks/Content
 cp /tmp/cosys-blocks/Unreal/Environments/Blocks/Blocks.uproject Unreal/Environments/Blocks/
@@ -187,7 +187,7 @@ The drones take off, fly their recorded paths at 0.75 m/s and 4 m above the star
 | Setting | Example |
 | --- | --- |
 | Trajectory folder | `WAYPOINT_DIR=/path/to/trajectories` |
-| Simulator address, for a simulator on another machine | `HERCULES_HOST=192.168.1.20` |
+| Simulator address, for a simulator on another machine or on Windows with the scripts in WSL | `HERCULES_HOST=172.28.160.1` |
 | Drone speed and altitude (NED, negative is up) | `WAYPOINT_VELOCITY=1.5 FLY_ALTITUDE=-6` |
 | Fly each waypoint's recorded altitude | `USE_WAYPOINT_Z=true` |
 | Return to the start before landing | `DISABLE_RETURN_HOME=false` |
@@ -207,15 +207,28 @@ python dataset_pipeline/generate_dataset.py dataset_pipeline/configs/blocks_team
 
 Do not start the run scripts as well. The dataset is written to `~/hercules_datasets/blocks_team_01`; change `sequence` in a copy of the config for each new run, and set `use_waypoint_z: true` for planned trajectories. Add `--dry-run` to check the paths and print the commands without running them. The `labels` stage, which exports the segmentation label map, needs extra setup in the editor; see `dataset_pipeline/README.md`.
 
+## Simulator on Windows, ROS 2 in WSL
+
+The simulator can run on Windows, from the editor or a packaged build, while the ROS 2 bridges, run scripts and Python clients run in WSL 2:
+
+- In WSL's default NAT networking, Windows is the WSL default gateway (`ip route show default`), and the simulator must accept connections from outside Windows' loopback: set `"LocalHostIp": "0.0.0.0"` in the settings file. With mirrored networking (`networkingMode=mirrored` in `.wslconfig`), `127.0.0.1` works from WSL as well.
+- Windows Firewall asks whether to allow the simulator (`UnrealEditor.exe`, or the packaged `<Project>.exe`) the first time it listens. Allow it, or WSL cannot connect to ports 41451 and 41452.
+- Pass the Windows address to the bridges, run scripts and clients, for example `ros2 launch airsim_ros_pkgs hercules_hero_team.launch.py host_ip:=172.28.160.1`, `HERCULES_HOST=172.28.160.1 ./DroneWaypointControl/run_drones_waypoints.sh 2` and `MultirotorClient(ip="172.28.160.1", port=41451)`.
+
 ## What has been tested
 
-The plugin build, the waypoint controllers and the ROS 2 bridges were exercised on Ubuntu 24.04 and 26.04 without a running Unreal Engine:
+With Unreal Engine 5.8.3 on Windows 11 (Visual Studio 2026, MSVC 14.51) and the clients in WSL 2 (Ubuntu 26.04, ROS 2 Lyrical):
 
-- `./setup.sh` and `./build.sh --ue-root` with Unreal Engine 5.2's toolchain build AirLib, rpclib and MavLinkCom with its clang 15 against its glibc 2.17 sysroot, and the waypoint controllers run on both releases. A libc++ built from LLVM 15 stood in for the engine's own.
+- `build.cmd` builds AirLib, rpclib 2.3.1 and MavLinkCom, and the Blocks project builds and packages for Win64 with the plugin. `./build.sh --ue-toolchain` with Epic's clang 20 toolchain for Unreal Engine 5.8 builds the Linux AirLib, rpclib and MavLinkCom libraries against its glibc 2.28 sysroot and libc++.
+- In Blocks with `hero_blocks_team.json`, from the editor (`-game`) and from the packaged build, both RPC servers list all four robots; every robot returns scene, planar depth, segmentation, ThermalIR and NightVision images and LiDAR, IMU and GPS data; `Drone1` takes off and climbs 5 m; `Husky1` drives 10 m.
+- The team launch file brings up both bridges against the simulator with `/clock` at 20 Hz, IMU at 100 Hz and every robot's camera and LiDAR topics; velocity commands fly `Drone2` and `car_cmd` drives `Husky2`.
+- A Husky driven off the map below the level's KillZ returns to its start pose instead of being destroyed.
+
+Earlier, without a running Unreal Engine, on Ubuntu 24.04 and 26.04:
+
 - `hero_blocks_team.json` loads in HERCULES' settings parser as Hero mode with the `UGVPawn` Husky.
-- Against a stand-in RPC server for the two Hero ports, the team launch file brings up both bridges with every robot's topics, and `DroneWaypointControl` completes its takeoff, path and landing sequence. Velocity commands on each of the drone topics above reach the server as `moveByVelocity` calls for the right drones, rotated into the drone's heading for the body-frame topics.
-- `make_planning_maps.py` sends its `simCreateVoxelGrid` request to the stand-in server and converts a synthetic voxel grid with boxes, a tower, a curb, a raised platform, an overhang, a canopy and a gap in the floor into the expected ground and drone maps.
-- On those maps, `plan_team_trajectories.launch.py` plans all four robots with both patterns and exits. Every trajectory starts at its robot's spawn point and stays clear of the obstacles on its map, and in `Convoy` each drone tracks its Husky's path.
+- Against a stand-in RPC server for the two Hero ports, `DroneWaypointControl` completes its takeoff, path and landing sequence, and velocity commands on each of the drone topics above reach the server as `moveByVelocity` calls for the right drones, rotated into the drone's heading for the body-frame topics.
+- `make_planning_maps.py` converts a synthetic voxel grid with boxes, a tower, a curb, a raised platform, an overhang, a canopy and a gap in the floor into the expected ground and drone maps, and `plan_team_trajectories.launch.py` plans all four robots on them with both patterns: every trajectory starts at its robot's spawn point and stays clear of the obstacles on its map, and in `Convoy` each drone tracks its Husky's path.
 - With the Blocks config, `generate_dataset.py --dry-run` resolves every path in the repository, and the `post` stage processes synthetic odometry into world-frame poses and synthetic IMU data.
 
-Building the plugin into Unreal Engine 5.2.1 and the robots' behaviour in the simulator have not been tested in this setup.
+The waypoint controllers, the planner and the dataset pipeline have not yet been run against the simulator.
