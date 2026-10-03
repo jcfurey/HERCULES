@@ -421,3 +421,15 @@ ros2/src/VINS-MONO-ROS2
 
 *.csv
 PythonClient/segmentation/*.csv
+
+# HerculesEnvs: track the project, its code, config, scripts and HERCULES levels only.
+# The plugin copy (update_from_git), build output and Fab content stay local.
+/Unreal/Environments/HerculesEnvs/Plugins/
+/Unreal/Environments/HerculesEnvs/Binaries/
+/Unreal/Environments/HerculesEnvs/Intermediate/
+/Unreal/Environments/HerculesEnvs/Saved/
+/Unreal/Environments/HerculesEnvs/DerivedDataCache/
+/Unreal/Environments/HerculesEnvs/Content/*
+!/Unreal/Environments/HerculesEnvs/Content/Hercules/
+/Unreal/Environments/HerculesEnvs/cesium-request-cache.sqlite*
+/Unreal/Environments/HerculesEnvs/Config/*.release-backup

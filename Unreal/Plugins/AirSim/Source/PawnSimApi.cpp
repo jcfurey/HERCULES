@@ -71,6 +71,13 @@ void PawnSimApi::setStartPosition(const FVector& position, const FRotator& rotat
                                                              AirSimSettings::singleton().origin_geopoint);
 }
 
+void PawnSimApi::setHomeGeoPoint(const msr::airlib::HomeGeoPoint& origin)
+{
+    Vector3r nedWrtOrigin = ned_transform_.toGlobalNed(initial_state_.start_location);
+    home_geo_point_ = msr::airlib::EarthUtils::nedToGeodetic(nedWrtOrigin, origin);
+    environment_->setHomeGeoPoint(home_geo_point_);
+}
+
 void PawnSimApi::pawnTick(float dt)
 {
     //default behavior is to call update every tick

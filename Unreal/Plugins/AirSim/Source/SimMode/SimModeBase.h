@@ -142,6 +142,11 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Airsim | get stuff")
     virtual void reset();
 
+    /** Moves the geographic origin (the PlayerStart) to a new latitude, longitude and altitude,
+     *  and every vehicle's home with it, for example for a georeferenced world placed at run time. */
+    UFUNCTION(BlueprintCallable, Category = "Airsim | get stuff")
+    void SetOriginGeoPoint(double Latitude, double Longitude, double Altitude);
+
     // Sets default values for this actor's properties
     ASimModeBase();
     virtual void BeginPlay() override;

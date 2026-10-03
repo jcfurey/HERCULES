@@ -87,6 +87,7 @@ nav:
   - "HERCULES Features":
     - "Heterogeneous UAV–UGV Autonomy": 'heterogeneous_autonomy.md'
     - "Running a UAV–UGV Team": 'hero_team_quickstart.md'
+    - "Packaged Environments": 'packaged_environments.md'
     - "LWIR Thermal Camera": 'lwir_camera.md'
     - "Night-Vision Camera": 'night_vision.md'
     - "Dynamic Environmental Phenomena":
