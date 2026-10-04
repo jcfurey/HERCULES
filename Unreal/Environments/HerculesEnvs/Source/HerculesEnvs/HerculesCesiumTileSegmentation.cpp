@@ -2,6 +2,7 @@
 
 #include "CesiumLoadedTile.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/Level.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/World.h"
