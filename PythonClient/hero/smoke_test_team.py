@@ -53,8 +53,8 @@ def save_images(client, vehicle, out):
             buf = np.frombuffer(r.image_data_uint8, dtype=np.uint8)
             ok = r.width > 0 and buf.size == r.width * r.height * 3
             if ok:
-                img = buf.reshape(r.height, r.width, 3)
-                cv2.imwrite(os.path.join(out, f"{vehicle}_{name}.png"), img)
+                img = buf.reshape(r.height, r.width, 3)  # RGB
+                cv2.imwrite(os.path.join(out, f"{vehicle}_{name}.png"), cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
                 std = float(img.std())
                 ok = std > 1.0  # not a blank frame
             check(f"{vehicle} {name}", ok, f"{r.width}x{r.height} std={buf.std():.1f}" if r.width else "empty")

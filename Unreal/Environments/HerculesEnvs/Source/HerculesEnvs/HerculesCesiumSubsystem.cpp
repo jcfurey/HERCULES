@@ -1,4 +1,5 @@
 #include "HerculesCesiumSubsystem.h"
+#include "HerculesCesiumTileSegmentation.h"
 
 #include "Cesium3DTileset.h"
 #include "CesiumGeoreference.h"
@@ -23,8 +24,10 @@
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Parse.h"
+#include "PIPCamera.h"
 #include "RHI.h"
 #include "RHIStats.h"
+#include "SimMode/SimModeBase.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Layout/SBorder.h"
@@ -227,6 +230,13 @@ void UHerculesCesiumSubsystem::OnWorldBeginPlay(UWorld& InWorld)
     }
     if (Georef == nullptr && IonTilesets.Num() == 0)
         return;
+    static const FName SpawnPadTag(TEXT("HerculesSpawnPad"));
+    for (TActorIterator<AActor> It(&InWorld); It; ++It) {
+        if (It->ActorHasTag(SpawnPadTag)) {
+            SpawnPad = *It;
+            break;
+        }
+    }
 
     FString Token;
     if (!FParse::Value(FCommandLine::Get(), TEXT("CesiumIonToken="), Token))
@@ -312,11 +322,15 @@ void UHerculesCesiumSubsystem::OnWorldBeginPlay(UWorld& InWorld)
     FParse::Value(FCommandLine::Get(), TEXT("CesiumMaxScreenSpaceError="), MaxScreenSpaceError);
     int32 SimultaneousTileLoads = 64;
     FParse::Value(FCommandLine::Get(), TEXT("CesiumMaxSimultaneousTileLoads="), SimultaneousTileLoads);
+    TileSegmentation = NewObject<UHerculesCesiumTileSegmentation>(this);
     for (ACesium3DTileset* Tileset : IonTilesets) {
+        if (Tileset->GetLifecycleEventReceiver() == nullptr)
+            Tileset->SetLifecycleEventReceiver(TileSegmentation);
         Tileset->SetMaximumScreenSpaceError(MaxScreenSpaceError);
         // Fine tiles for several robots: keep more of them cached, and load more at once
         Tileset->MaximumCachedBytes = CacheBytes;
         Tileset->MaximumSimultaneousTileLoads = SimultaneousTileLoads;
+        Tileset->LogSelectionStats = FParse::Param(FCommandLine::Get(), TEXT("CesiumLogSelectionStats"));
         Tileset->SetIonAccessToken(Token);
         Tileset->RefreshTileset();
         Tilesets.Add(Tileset);
@@ -379,6 +393,18 @@ void UHerculesCesiumSubsystem::Tick(float DeltaTime)
     Super::Tick(DeltaTime);
     if (Tilesets.Num() > 0)
         UpdateRobotCameras();
+    SinceSegmentationFlush += DeltaTime;
+    if (TileSegmentation != nullptr && SinceSegmentationFlush >= 0.25f && GetWorld() != nullptr) {
+        SinceSegmentationFlush = 0.0f;
+        TileSegmentation->Flush(*GetWorld());
+    }
+    if (SpawnPad.IsValid() && !bPlacingRobots) {
+        SincePadCheck += DeltaTime;
+        if (SincePadCheck >= 0.5f) {
+            SincePadCheck = 0.0f;
+            ReleaseRobotsFromSpawnPad();
+        }
+    }
     if (bGroundSamplePending) {
         WaitedSeconds += DeltaTime;
         if (WaitedSeconds >= 1.0f && Tilesets.Num() > 0 && Tilesets[0].IsValid()) {
@@ -480,9 +506,11 @@ void UHerculesCesiumSubsystem::PlaceSpawnArea()
                 ++Count;
             }
         }
-        OutHeight = Sum / Count;
+        // The highest point goes at the spawn pad's top, so no ground in the footprint rises into the
+        // robots; once the pad is removed they settle at most 50 cm onto the tiles
+        OutHeight = Hi;
         // flat to 50 cm across the footprint, and within 2 m of ground level
-        return Hi - Lo <= 50.0 && FMath::Abs(OutHeight - Ground) <= 200.0;
+        return Hi - Lo <= 50.0 && FMath::Abs(Sum / Count - Ground) <= 200.0;
     };
 
     // Nearest suitable area to the requested place
@@ -540,33 +568,50 @@ void UHerculesCesiumSubsystem::PlaceSpawnArea()
     SetAirSimOrigin(Georef->TransformUnrealPositionToLongitudeLatitudeHeight(PlayerStart));
 }
 
+void UHerculesCesiumSubsystem::ReleaseRobotsFromSpawnPad()
+{
+    UWorld* World = GetWorld();
+    AActor* Pad = SpawnPad.Get();
+    if (World == nullptr || Pad == nullptr)
+        return;
+    // Only once tiles are under every robot, or one would fall through a hole. The pad ignores the
+    // visibility channel, which the tiles block.
+    FCollisionQueryParams Query(SCENE_QUERY_STAT(HerculesSpawnPad), true);
+    TArray<APawn*> Robots;
+    for (TActorIterator<APawn> It(World); It; ++It) {
+        if (It->IsA<ASpectatorPawn>() || It->IsA<ADefaultPawn>())
+            continue;
+        Robots.Add(*It);
+        Query.AddIgnoredActor(*It);
+    }
+    for (const APawn* Robot : Robots) {
+        FVector Center, Extent;
+        Robot->GetActorBounds(true, Center, Extent);
+        const FVector Bottom = Center - FVector(0.0, 0.0, Extent.Z);
+        FHitResult Hit;
+        if (!World->LineTraceSingleByChannel(Hit, Bottom + FVector(0.0, 0.0, 100.0), Bottom - FVector(0.0, 0.0, 300.0), ECC_Visibility, Query))
+            return;
+    }
+    // The robots settle onto the tiles (at most 50 cm below the pad's top, see PlaceSpawnArea)
+    Pad->SetActorEnableCollision(false);
+    SpawnPad.Reset();
+    UE_LOG(LogHerculesCesium, Log, TEXT("Tiles are under all %d robots; the spawn pad no longer holds them"), Robots.Num());
+}
+
 void UHerculesCesiumSubsystem::SetAirSimOrigin(const FVector& LongitudeLatitudeHeight) const
 {
-    // Through reflection, so this module doesn't build against AirLib
-    UClass* SimModeClass = FindObject<UClass>(nullptr, TEXT("/Script/AirSim.SimModeBase"));
-    if (SimModeClass == nullptr || GetWorld() == nullptr)
+    ASimModeBase* SimMode = ASimModeBase::getSimMode();
+    if (SimMode == nullptr)
         return;
-    for (TActorIterator<AActor> It(GetWorld(), SimModeClass); It; ++It) {
-        UFunction* Function = It->FindFunction(TEXT("SetOriginGeoPoint"));
-        if (Function == nullptr)
-            continue;
-        struct
-        {
-            double Latitude;
-            double Longitude;
-            double Altitude;
-        } Params{LongitudeLatitudeHeight.Y, LongitudeLatitudeHeight.X, LongitudeLatitudeHeight.Z};
-        It->ProcessEvent(Function, &Params);
-        UE_LOG(LogHerculesCesium, Log, TEXT("Robots' GPS origin set to lat %.6f, lon %.6f, altitude %.1f m"), Params.Latitude, Params.Longitude, Params.Altitude);
-    }
+    SimMode->SetOriginGeoPoint(LongitudeLatitudeHeight.Y, LongitudeLatitudeHeight.X, LongitudeLatitudeHeight.Z);
+    UE_LOG(LogHerculesCesium, Log, TEXT("Robots' GPS origin set to lat %.6f, lon %.6f, altitude %.1f m"), LongitudeLatitudeHeight.Y, LongitudeLatitudeHeight.X, LongitudeLatitudeHeight.Z);
 }
 
 void UHerculesCesiumSubsystem::UpdateRobotCameras() const
 {
     UWorld* World = GetWorld();
-    static UClass* CameraClass = FindObject<UClass>(nullptr, TEXT("/Script/AirSim.PIPCamera"));
     ACesiumCameraManager* Manager = World != nullptr ? ACesiumCameraManager::GetDefaultCameraManager(World) : nullptr;
-    if (CameraClass == nullptr || Manager == nullptr)
+    if (Manager == nullptr)
         return;
     Manager->AdditionalCameras.Reset();
     if (bPlacingRobots) {
@@ -577,25 +622,40 @@ void UHerculesCesiumSubsystem::UpdateRobotCameras() const
         Manager->AdditionalCameras.Add(FCesiumCamera(FVector2D(4096.0, 4096.0), FVector(0.0, 0.0, HeightCm), FRotator(-90.0, 0.0, 0.0), 90.0));
         return;
     }
-    for (TActorIterator<AActor> It(World, CameraClass); It; ++It) {
-        const USceneCaptureComponent2D* Capture = It->FindComponentByClass<USceneCaptureComponent2D>();
-        FVector2D Size(640.0, 360.0);
-        if (Capture != nullptr && Capture->TextureTarget != nullptr)
-            Size = FVector2D(Capture->TextureTarget->SizeX, Capture->TextureTarget->SizeY);
-        const double FieldOfView = Capture != nullptr ? Capture->FOVAngle : 90.0;
-        const FTransform Pose = Capture != nullptr ? Capture->GetComponentTransform() : It->GetActorTransform();
-        // Cameras a few centimetres apart looking the same way (e.g. a stereo pair next to
-        // front_center) need the same tiles: register one of them
-        bool bDuplicate = false;
-        for (const FCesiumCamera& Other : Manager->AdditionalCameras) {
-            if (FVector::DistSquared(Other.Location, Pose.GetLocation()) < 100.0 * 100.0
-                && Other.Rotation.Vector().Dot(Pose.Rotator().Vector()) > FMath::Cos(FMath::DegreesToRadians(10.0))
-                && Other.FieldOfViewDegrees >= FieldOfView && Other.ViewportSize.X >= Size.X) {
-                bDuplicate = true;
-                break;
-            }
+    // Each camera view costs Cesium a traversal of the tiles every frame, so only cameras that
+    // capture images count: AirSim activates a camera's captures when their images are first
+    // requested. Of the cameras a robot carries, most usually capture nothing.
+    TArray<USceneCaptureComponent2D*> Captures;
+    for (TActorIterator<APIPCamera> It(World); It; ++It) {
+        It->GetComponents(Captures);
+        const USceneCaptureComponent2D* Active = nullptr;
+        FVector2D Size(0.0, 0.0);
+        double FieldOfView = 0.0;
+        for (const USceneCaptureComponent2D* Capture : Captures) {
+            if (!Capture->IsActive() || Capture->TextureTarget == nullptr)
+                continue;
+            Active = Capture;
+            Size = FVector2D(FMath::Max<double>(Size.X, Capture->TextureTarget->SizeX), FMath::Max<double>(Size.Y, Capture->TextureTarget->SizeY));
+            FieldOfView = FMath::Max<double>(FieldOfView, Capture->FOVAngle);
         }
-        if (!bDuplicate)
+        if (Active == nullptr)
+            continue;
+        const FTransform Pose = Active->GetComponentTransform();
+        // Cameras a few centimetres apart looking the same way (e.g. a stereo pair next to
+        // front_center) need the same tiles: share one view, wide and fine enough for each
+        FCesiumCamera* Shared = Manager->AdditionalCameras.FindByPredicate([&Pose](const FCesiumCamera& Other) {
+            return FVector::DistSquared(Other.Location, Pose.GetLocation()) < 100.0 * 100.0
+                && Other.Rotation.Vector().Dot(Pose.Rotator().Vector()) > FMath::Cos(FMath::DegreesToRadians(10.0));
+        });
+        if (Shared == nullptr) {
             Manager->AdditionalCameras.Add(FCesiumCamera(Size, Pose.GetLocation(), Pose.Rotator(), FieldOfView));
+            continue;
+        }
+        Shared->ViewportSize = FVector2D(FMath::Max(Shared->ViewportSize.X, Size.X), FMath::Max(Shared->ViewportSize.Y, Size.Y));
+        Shared->FieldOfViewDegrees = FMath::Max(Shared->FieldOfViewDegrees, FieldOfView);
+    }
+    if (Manager->AdditionalCameras.Num() != LoggedCameraCount) {
+        LoggedCameraCount = Manager->AdditionalCameras.Num();
+        UE_LOG(LogHerculesCesium, Log, TEXT("Tiles refine for %d robot camera view(s)"), LoggedCameraCount);
     }
 }

@@ -7,6 +7,6 @@ public class HerculesEnvs : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		// Cesium's headers use exceptions
 		bEnableExceptions = true;
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "CesiumRuntime", "Slate", "SlateCore", "RHI" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "CesiumRuntime", "Slate", "SlateCore", "RHI", "AirSim" });
 	}
 }

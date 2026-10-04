@@ -67,7 +67,8 @@ def add_spawn_pad(size_m=40.0, z_cm=0.0):
     """Invisible floor under the spawn point that only robots collide with.
 
     Streamed worlds (Cesium) have no ground until tiles load. The pad holds the robots until then;
-    it ignores the visibility and camera channels, so cameras and LiDAR do not see it."""
+    it ignores the visibility and camera channels, so cameras and LiDAR do not see it. The
+    HerculesSpawnPad tag lets the Cesium subsystem remove it once tiles are under the robots."""
     pad = spawn(unreal.StaticMeshActor, (0, 0, z_cm - 5.0), label="HerculesSpawnPad")
     comp = pad.static_mesh_component
     comp.set_static_mesh(unreal.EditorAssetLibrary.load_asset("/Engine/BasicShapes/Cube.Cube"))
@@ -80,7 +81,7 @@ def add_spawn_pad(size_m=40.0, z_cm=0.0):
     comp.set_collision_response_to_all_channels(unreal.CollisionResponseType.ECR_BLOCK)
     comp.set_collision_response_to_channel(unreal.CollisionChannel.ECC_VISIBILITY, unreal.CollisionResponseType.ECR_IGNORE)
     comp.set_collision_response_to_channel(unreal.CollisionChannel.ECC_CAMERA, unreal.CollisionResponseType.ECR_IGNORE)
-    pad.tags = ["InstanceSegmentation_disable"]
+    pad.tags = ["InstanceSegmentation_disable", "HerculesSpawnPad"]
     comp.component_tags = ["InstanceSegmentation_disable"]
 
 
