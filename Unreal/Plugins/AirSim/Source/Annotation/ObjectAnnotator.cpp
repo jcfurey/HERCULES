@@ -736,6 +736,34 @@ bool FObjectAnnotator::DeleteActor(AActor* actor)
 	}
 }
 
+bool FObjectAnnotator::PaintComponentAs(UMeshComponent* component, UMeshComponent* object_component)
+{
+	if (!IsValid(component) || !IsValid(object_component)) return false;
+	const FString* object_name = component_to_name_map_.Find(object_component);
+	const uint32* color_index = object_name ? name_to_color_index_map_.Find(*object_name) : nullptr;
+	if (color_index == nullptr) return false;
+	if (!PaintRGBComponent(component, ColorGenerator_.GetColorFromColorMap(*color_index), *object_name + "_" + component->GetName())) return false;
+	// Components can be painted while hidden (streamed tiles are shown later); match their visibility
+	TArray<USceneComponent*> children;
+	component->GetChildrenComponents(false, children);
+	for (USceneComponent* child : children) {
+		if (child->IsA<UAnnotationComponent>() && child->GetName().StartsWith(name_ + "_"))
+			child->SetVisibility(component->IsVisible());
+	}
+	return true;
+}
+
+void FObjectAnnotator::UnpaintComponent(UMeshComponent* component)
+{
+	if (!IsValid(component)) return;
+	TArray<USceneComponent*> children;
+	component->GetChildrenComponents(false, children);
+	for (USceneComponent* child : children) {
+		if (child->IsA<UAnnotationComponent>() && child->GetName().StartsWith(name_ + "_"))
+			child->DestroyComponent();
+	}
+}
+
 uint32 FObjectAnnotator::GetComponentIndex(FString component_id)
 {
 	if (name_to_color_index_map_.Num() == 0)

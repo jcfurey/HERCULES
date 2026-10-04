@@ -1388,6 +1388,21 @@ bool ASimModeBase::DeleteActorFromInstanceSegmentation(AActor *Actor, bool updat
     return success;
 }
 
+bool ASimModeBase::PaintInstanceSegmentationComponentAs(UMeshComponent *Component, UMeshComponent *ObjectComponent, bool update_annotation)
+{
+    bool success = instance_segmentation_annotator_.PaintComponentAs(Component, ObjectComponent);
+    if (success && update_annotation)
+        updateInstanceSegmentationAnnotation();
+    return success;
+}
+
+void ASimModeBase::UnpaintInstanceSegmentationComponent(UMeshComponent *Component, bool update_annotation)
+{
+    instance_segmentation_annotator_.UnpaintComponent(Component);
+    if (update_annotation)
+        updateInstanceSegmentationAnnotation();
+}
+
 void ASimModeBase::ForceUpdateInstanceSegmentation()
 {
     instance_segmentation_annotator_.UpdateAnnotationComponents(this->GetWorld());

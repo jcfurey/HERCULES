@@ -51,6 +51,15 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Instance Segmentation")
     void ForceUpdateInstanceSegmentation();
 
+    /** Gives a mesh component created at run time, such as a streamed map tile, the instance
+     *  segmentation ID of a registered object's component, without listing it as an object of its
+     *  own. Call UnpaintInstanceSegmentationComponent before the component is destroyed. */
+    UFUNCTION(BlueprintCallable, Category = "Instance Segmentation")
+    bool PaintInstanceSegmentationComponentAs(UMeshComponent *Component, UMeshComponent *ObjectComponent, bool update_annotation = true);
+
+    UFUNCTION(BlueprintCallable, Category = "Instance Segmentation")
+    void UnpaintInstanceSegmentationComponent(UMeshComponent *Component, bool update_annotation = true);
+
     UFUNCTION(BlueprintCallable, Category = "Annotation")
     bool DoesAnnotationLayerExist(FString annotation_name);
 

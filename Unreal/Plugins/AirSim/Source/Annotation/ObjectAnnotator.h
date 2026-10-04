@@ -53,6 +53,13 @@ public:
 
 	bool DeleteActor(AActor* actor);
 
+	// Paints a mesh component that is not an object of its own, such as a map tile streamed in at
+	// run time, with the color of a registered object (object_component), so it shares its ID.
+	bool PaintComponentAs(UMeshComponent* component, UMeshComponent* object_component);
+
+	// Removes the paint added by PaintComponentAs; call it before the component is destroyed.
+	void UnpaintComponent(UMeshComponent* component);
+
 	bool AnnotateNewActor(AActor* actor);
 	bool AnnotateNewActorInstanceSegmentation(AActor* actor);
 	bool AnnotateNewActorRGB(AActor* actor);
