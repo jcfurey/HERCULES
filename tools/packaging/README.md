@@ -15,7 +15,7 @@ All scripts read their locations from [`env.bat`](env.bat); set any of these fir
 
 - **Linux cross-toolchain.** Download `https://cdn.unrealengine.com/CrossToolchain_Linux/v26_clang-20.1.8-rockylinux8.exe`. Run it, or, without administrator rights, unpack it with 7-Zip (`7zz x -tNsis`) into `%HERCULES_OUT%\toolchains\v26_clang-20.1.8-rockylinux8`.
 - **Linux libraries for the plugin.** In WSL or on Linux, download Epic's native toolchain (`https://cdn.unrealengine.com/Toolchain_Linux/native-linux-v26_clang-20.1.8-rockylinux8.tar.gz`), then from a clone of this repository run `./setup.sh` (or fetch rpclib 2.3.1 and Eigen 3.4.1r as it does) and `./build.sh --ue-toolchain <toolchain>/x86_64-unknown-linux-gnu`. Copy `AirLib/lib/libAirLib.a`, `AirLib/deps/rpclib/lib/librpc.a` and `AirLib/deps/MavLinkCom/lib/libMavLinkCom.a` into the same places in the Windows checkout. Rebuild them whenever AirLib changes (`build_airlib.bat` keeps them in place).
-- **Cesium for Unreal**, installed into UE 5.8 from Fab. `copy_cesium.bat` copies it into the HerculesEnvs project, so that it is built from source for Linux as well:
+- **Cesium for Unreal**, installed into UE 5.8 from Fab. `copy_cesium.bat` copies it into the HerculesEnvs project, so that it is built from source for Linux as well, and patches it (`patch_cesium.ps1`) for Linux builds and headless (`-nullrhi`) games:
 
   ```bat
   copy_cesium.bat ..\..\Unreal\Environments\HerculesEnvs
