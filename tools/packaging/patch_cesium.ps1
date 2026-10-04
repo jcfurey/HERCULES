@@ -23,7 +23,7 @@ Update-File (Join-Path $runtime 'CesiumRuntime.Build.cs') {
     $s -replace '(public CesiumRuntime\(ReadOnlyTargetRules Target\) : base\(Target\)\s*\{)', ('$1' + $nl + '        CppCompileWarningSettings.UnreachableCodeWarningLevel = WarningLevel.Warning;')
 }
 
-# A headless game (-nullrhi) can't create the tiles' render resources; collision still works without them
+# A headless game (-nullrhi) can't create the tiles' render resources; collision still works without them (until CesiumGS/cesium-unreal#1907 lands)
 Update-File (Join-Path $runtime 'Private\CesiumGltfComponent.cpp') {
     param($s)
     if ($s -match 'FApp::CanEverRender\(\)\) \{\s*TRACE_CPUPROFILER_EVENT_SCOPE\(Cesium::InitResources\)') { return $s }
