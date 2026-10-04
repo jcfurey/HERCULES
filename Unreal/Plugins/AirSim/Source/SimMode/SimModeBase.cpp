@@ -1462,6 +1462,31 @@ void ASimModeBase::ForceUpdateAnnotation(FString annotation_name)
 void ASimModeBase::updateInstanceSegmentationAnnotation()
 {
     TArray<TWeakObjectPtr<UPrimitiveComponent>> current_segmentation_components = instance_segmentation_annotator_.GetAnnotationComponents();
+    // Cameras hide only the components added since the previous refresh: with thousands of components
+    // (e.g. streamed map tiles), hiding all of them in every camera at each refresh stalled the game
+    const TArray<TWeakObjectPtr<UPrimitiveComponent>> new_segmentation_components = instance_segmentation_annotator_.TakeNewAnnotationComponents();
+    const uint64 refresh_serial = ++instance_segmentation_refresh_serial_;
+    if (APlayerController* controller = GetWorld()->GetFirstPlayerController())
+    {
+        if (instance_segmentation_hidden_controller_ != controller)
+        {
+            instance_segmentation_hidden_controller_ = controller;
+            instance_segmentation_controller_serial_ = 0;
+        }
+        TArray<TWeakObjectPtr<UPrimitiveComponent>>& hidden = controller->HiddenPrimitiveComponents;
+        if (instance_segmentation_controller_serial_ != 0 && instance_segmentation_controller_serial_ + 1 == refresh_serial)
+            hidden.Append(new_segmentation_components);
+        else
+        {
+            TSet<TWeakObjectPtr<UPrimitiveComponent>> present(hidden);
+            for (const TWeakObjectPtr<UPrimitiveComponent>& component : current_segmentation_components)
+                if (!present.Contains(component))
+                    hidden.Add(component);
+        }
+        instance_segmentation_controller_serial_ = refresh_serial;
+        if (hidden.Num() > 2 * current_segmentation_components.Num() + 1024)
+            hidden.RemoveAll([](const TWeakObjectPtr<UPrimitiveComponent>& component) { return !component.IsValid(); });
+    }
 
     TArray<AActor *> cameras_found;
     UAirBlueprintLib::RunCommandOnGameThread([this, &cameras_found]()
@@ -1471,7 +1496,7 @@ void ASimModeBase::updateInstanceSegmentationAnnotation()
         for (auto camera_actor : cameras_found)
         {
             APIPCamera *cur_camera = static_cast<APIPCamera *>(camera_actor);
-            cur_camera->updateInstanceSegmentationAnnotation(current_segmentation_components);
+            cur_camera->updateInstanceSegmentationAnnotation(current_segmentation_components, new_segmentation_components, refresh_serial);
         }
     }
     TArray<AActor *> lidar_cameras_found;
@@ -1489,13 +1514,13 @@ void ASimModeBase::updateInstanceSegmentationAnnotation()
     if (CameraDirector != nullptr)
     {
         if (CameraDirector->getFpvCamera() != nullptr)
-            CameraDirector->getFpvCamera()->updateInstanceSegmentationAnnotation(current_segmentation_components, true);
+            CameraDirector->getFpvCamera()->updateInstanceSegmentationAnnotation(current_segmentation_components, new_segmentation_components, refresh_serial, true);
         if (CameraDirector->getExternalCamera() != nullptr)
-            CameraDirector->getExternalCamera()->updateInstanceSegmentationAnnotation(current_segmentation_components, true);
+            CameraDirector->getExternalCamera()->updateInstanceSegmentationAnnotation(current_segmentation_components, new_segmentation_components, refresh_serial, true);
         if (CameraDirector->getBackupCamera() != nullptr)
-            CameraDirector->getBackupCamera()->updateInstanceSegmentationAnnotation(current_segmentation_components, true);
+            CameraDirector->getBackupCamera()->updateInstanceSegmentationAnnotation(current_segmentation_components, new_segmentation_components, refresh_serial, true);
         if (CameraDirector->getFrontCamera() != nullptr)
-            CameraDirector->getFrontCamera()->updateInstanceSegmentationAnnotation(current_segmentation_components, true);
+            CameraDirector->getFrontCamera()->updateInstanceSegmentationAnnotation(current_segmentation_components, new_segmentation_components, refresh_serial, true);
     }
 }
 

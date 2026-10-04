@@ -34,6 +34,23 @@ static void hideComponents(TArray<TWeakObjectPtr<UPrimitiveComponent>>& hidden, 
     }
 }
 
+//keeps the annotation components of a refresh hidden in a list: only the new ones when the list has
+//those of the previous refresh, all of them otherwise; destroyed components are dropped now and then
+static void hideComponentsIncrementally(TArray<TWeakObjectPtr<UPrimitiveComponent>>& hidden, uint64& hidden_serial,
+                                 const TArray<TWeakObjectPtr<UPrimitiveComponent>>& components,
+                                 const TArray<TWeakObjectPtr<UPrimitiveComponent>>& new_components, uint64 serial)
+{
+    if (hidden_serial == serial)
+        return;
+    if (hidden_serial != 0 && hidden_serial + 1 == serial)
+        hidden.Append(new_components);
+    else
+        hideComponents(hidden, components);
+    hidden_serial = serial;
+    if (hidden.Num() > 2 * components.Num() + 1024)
+        hidden.RemoveAll([](const TWeakObjectPtr<UPrimitiveComponent>& component) { return !component.IsValid(); });
+}
+
 //CinemAirSim
 APIPCamera::APIPCamera(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer
@@ -489,6 +506,14 @@ void APIPCamera::updateInstanceSegmentationAnnotation(TArray<TWeakObjectPtr<UPri
     APlayerController* controller = this->GetWorld()->GetFirstPlayerController();
     hideComponents(captures_[Utils::toNumeric(ImageType::Scene)]->HiddenComponents, ComponentList);
     hideComponents(controller->HiddenPrimitiveComponents, ComponentList);
+}
+
+void APIPCamera::updateInstanceSegmentationAnnotation(TArray<TWeakObjectPtr<UPrimitiveComponent> >& ComponentList,
+    const TArray<TWeakObjectPtr<UPrimitiveComponent> >& NewComponents, uint64 RefreshSerial, bool only_hide) {
+    if(!only_hide)
+        captures_[Utils::toNumeric(ImageType::Segmentation)]->ShowOnlyComponents = ComponentList;
+    hideComponentsIncrementally(captures_[Utils::toNumeric(ImageType::Scene)]->HiddenComponents, instance_segmentation_serial_,
+                                ComponentList, NewComponents, RefreshSerial);
 }
 
 void APIPCamera::updateAnnotation(TArray<TWeakObjectPtr<UPrimitiveComponent> >& ComponentList, FString annotation_name, bool only_hide) {
