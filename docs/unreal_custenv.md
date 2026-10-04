@@ -20,7 +20,7 @@ There is no `Epic Games Launcher` for Linux which means that if you need to crea
 
         The Landscape Mountains project is supported up to Unreal Engine version 4.24. If you do not have 4.24 installed, you should see a dialog titled `Select Unreal Engine Version` with a dropdown to select from installed versions. Select 5.X to migrate the project to a supported engine version. If you have 4.24 installed, you can manually migrate the project by navigating to the corresponding .uproject file in Windows Explorer, right-clicking it, and selecting the `Switch Unreal Engine version...` option. 
 
-4. Go to the `LandscapeMountains` project folder and create a new subfolder called `Plugins`. Now copy the precompiled AirSim Plugin folder into this newly created folder. This way now your own Unreal project has AirSim plugin.
+4. Go to the `LandscapeMountains` project folder and create a new subfolder called `Plugins`. Now copy the precompiled AirSim and HerculesRayTracing plugin folders (AirSim uses HerculesRayTracing to cast LiDAR rays on the GPU) into this newly created folder. This way now your own Unreal project has AirSim plugin.
 
 5. Edit the `LandscapeMountains.uproject` so that you add the AirSim plugin to the list of plugins to load.
 
