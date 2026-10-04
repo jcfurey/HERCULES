@@ -87,6 +87,14 @@ ExternalLocal             | When in external mode, if this is enabled the retrie
 }
 ```
 
+## Casting rays on the GPU
+
+Where the project has hardware ray tracing enabled and the GPU supports inline ray tracing (DirectX 12 or Vulkan ray tracing, for example an NVIDIA RTX card), the lidar casts its rays on the GPU against the scene's ray tracing structure instead of tracing them one by one on the CPU. The rays, points, labels and noise are the same; in a test in a Cesium city the GPU and CPU point clouds matched to 0.01 cm (median) with identical labels, while the simulator used about 5 fewer CPU cores and lost its lidar frame-time spikes. The game logs which way each lidar casts (`LiDAR on Drone1: rays cast on the GPU`).
+
+The GPU rays follow the CPU traces' rules: objects that ignore the visibility channel are passed through, objects whose physical material is `Lidar_Ignore_PhysicalMaterial` are resolved exactly as on the CPU, and each point is labelled with the actor hit. They hit what is rendered, so an invisible collider (for example a hidden blocking volume) does not return points, while the CPU traces would see it. A scan is reported a few rendered frames after its rays were cast. The first GPU-cast scan turns off ray tracing culling around the camera (`r.RayTracing.Culling 0`), so that geometry near robots away from the camera is not missing.
+
+To trace on the CPU instead, set the console variable `airsim.Lidar.GpuRayTracing 0` (from the console, `simRunConsoleCommand`, or `-ExecCmds="airsim.Lidar.GpuRayTracing 0"` on the command line). Without hardware ray tracing, lidars always trace on the CPU.
+
 ## Server side visualization for debugging
 
 By default, the lidar points are not drawn on the viewport. To enable the drawing of hit laser points on the viewport, please enable setting `DrawDebugPoints` via settings json.
