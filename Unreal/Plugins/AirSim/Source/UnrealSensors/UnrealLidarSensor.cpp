@@ -169,7 +169,10 @@ bool UnrealLidarSensor::getPointCloud(const msr::airlib::Pose &lidar_pose,
 		point_cloud_draw_.assign(points_to_scan_with_one_laser * number_of_lasers, FVector());
 	}
 
-	// shoot lasers
+	// the horizontal angles to scan this tick, in order, up to the end of the sweep
+	TArray<TPair<uint32, uint32>> scan_angles; // angle index, step (1-based)
+	scan_angles.Reserve(points_to_scan_with_one_laser);
+	bool sweep_complete = false;
 	for (uint32 i = 1; i <= points_to_scan_with_one_laser; ++i)
 	{
 		if (current_horizontal_angle_index_ == horizontal_angles_.Num() - 1)
@@ -179,26 +182,10 @@ bool UnrealLidarSensor::getPointCloud(const msr::airlib::Pose &lidar_pose,
 
 		float horizontal_angle = horizontal_angles_[current_horizontal_angle_index_];
 
-		// wrap → full sweep completed: publish and (optionally) stop here
+		// wrap → full sweep completed: publish once this tick's points are in, and stop here
 		if ((previous_horizontal_angle > horizontal_angle) && (point_cloud.size() != 0))
 		{
-			if ((((int)point_cloud.size() / 3) != (int)total_points) ||
-				(groundtruth.size() != total_points))
-			{
-				UE_LOG(LogTemp, Warning, TEXT("Pointcloud or labels incorrect size! points:%i labels:%i"),
-					   (int)(point_cloud.size() / 3), groundtruth.size());
-			}
-
-			point_cloud_final = point_cloud;
-			groundtruth_final = groundtruth;
-
-			// prepare buffers for the next sweep (not strictly needed if we break)
-			point_cloud.assign(total_points * 3, 0);
-			groundtruth.assign(total_points, "out_of_range");
-
-			refresh = true;
-
-			// In a paused call, stop after one full sweep to keep timing deterministic.
+			sweep_complete = true;
 			break;
 		}
 
@@ -216,18 +203,36 @@ bool UnrealLidarSensor::getPointCloud(const msr::airlib::Pose &lidar_pose,
 			continue;
 		}
 
-		ParallelFor(number_of_lasers, [&](uint32 laser)
-					{
+		scan_angles.Emplace(current_horizontal_angle_index_, i);
+		previous_horizontal_angle = horizontal_angles_[current_horizontal_angle_index_];
+	}
+
+	// shoot the lasers of all those angles in one parallel batch: one batch per angle (one ray per
+	// channel) spent more time handing out and waiting for the work than tracing. Noise is drawn
+	// here, as the generator can't be shared between threads.
+	const int32 ray_count = scan_angles.Num() * number_of_lasers;
+	TArray<float> noise_samples;
+	if (params.generate_noise)
+	{
+		noise_samples.SetNumUninitialized(ray_count);
+		for (float &sample : noise_samples)
+			sample = dist_(gen_);
+	}
+	ParallelFor(ray_count, [&](int32 ray)
+				{
+const uint32 laser = ray % number_of_lasers;
+const uint32 angle_index = scan_angles[ray / number_of_lasers].Key;
+const uint32 i = scan_angles[ray / number_of_lasers].Value;
 float  vertical_angle      = laser_angles_[laser];
-uint32 current_point_index = number_of_lasers * current_horizontal_angle_index_ + laser;
+uint32 current_point_index = number_of_lasers * angle_index + laser;
 uint32 draw_index          = number_of_lasers * (i - 1) + laser; // fixed: i-1 to stay in-bounds
 
 Vector3r point;
 FVector  draw_point;
 std::string label;
 
-if (shootLaser(lidar_pose, vehicle_pose, laser, horizontal_angle, vertical_angle,
-params, point, label, draw_point))
+if (shootLaser(lidar_pose, vehicle_pose, laser, horizontal_angles_[angle_index], vertical_angle,
+params, params.generate_noise ? noise_samples[ray] : 0.0f, point, label, draw_point))
 {
 point_cloud[current_point_index * 3    ] = point.x();
 point_cloud[current_point_index * 3 + 1] = point.y();
@@ -238,7 +243,23 @@ if (sensor_params_.draw_debug_points)
 point_cloud_draw_[draw_index] = draw_point;
 } });
 
-		previous_horizontal_angle = horizontal_angles_[current_horizontal_angle_index_];
+	if (sweep_complete)
+	{
+		if ((((int)point_cloud.size() / 3) != (int)total_points) ||
+			(groundtruth.size() != total_points))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Pointcloud or labels incorrect size! points:%i labels:%i"),
+				   (int)(point_cloud.size() / 3), groundtruth.size());
+		}
+
+		point_cloud_final = point_cloud;
+		groundtruth_final = groundtruth;
+
+		// prepare buffers for the next sweep
+		point_cloud.assign(total_points * 3, 0);
+		groundtruth.assign(total_points, "out_of_range");
+
+		refresh = true;
 	}
 
 	if (sensor_params_.draw_debug_points)
@@ -266,7 +287,7 @@ FVector UnrealLidarSensor::Vector3rToFVector(const Vector3r &input_vector)
 // simulate shooting a laser via Unreal ray-tracing.
 bool UnrealLidarSensor::shootLaser(const msr::airlib::Pose &lidar_pose, const msr::airlib::Pose &vehicle_pose,
 								   const uint32 laser, const float horizontal_angle, const float vertical_angle,
-								   const msr::airlib::LidarSimpleParams params, Vector3r &point, std::string &label, FVector &raw_point)
+								   const msr::airlib::LidarSimpleParams &params, const float noise_sample, Vector3r &point, std::string &label, FVector &raw_point)
 {
 	// start position
 	Vector3r start = VectorMath::add(lidar_pose, vehicle_pose).position;
@@ -329,7 +350,7 @@ bool UnrealLidarSensor::shootLaser(const msr::airlib::Pose &lidar_pose, const ms
 		if (params.generate_noise)
 		{
 			// Add noise based on normal distribution taking into account scaling of noise with distance
-			float distance_noise = dist_(gen_) * (1 + ((hit_result.Distance / 100) / params.range) * (params.noise_distance_scale - 1));
+			float distance_noise = noise_sample * (1 + ((hit_result.Distance / 100) / params.range) * (params.noise_distance_scale - 1));
 
 			Vector3r impact_point_local = VectorMath::rotateVector(VectorMath::front(), ray_q_w, true) * ((hit_result.Distance / 100) + distance_noise) + start;
 			if (params.external)
