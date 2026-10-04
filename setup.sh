@@ -104,7 +104,12 @@ else #linux
         VERSION=$(lsb_release -rs | cut -d. -f1)
         # For Ubuntu 18 and up, avoid building cmake from scratch to save time
         # ref: https://apt.kitware.com
-        if [ "$VERSION" -ge "18" ]; then
+        if [ "$VERSION" -ge "20" ]; then
+            # The distribution's cmake is new enough (Kitware's bionic packages need libssl1.1, gone since 22.04)
+            sudo apt-get -y install --no-install-recommends \
+                make \
+                cmake
+        elif [ "$VERSION" -ge "18" ]; then
             sudo apt-get -y install \
                 apt-transport-https \
                 ca-certificates \
