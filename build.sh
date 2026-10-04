@@ -109,8 +109,14 @@ elif [[ -n "$ue_root" ]]; then
 else
     VERSION=$(lsb_release -rs | cut -d. -f1)
     if $gcc; then
-        export CC="gcc-12"
-        export CXX="g++-12"
+        # GCC 12 where installed, otherwise the distribution's GCC (e.g. Ubuntu 26.04)
+        if command -v g++-12 >/dev/null; then
+            export CC="gcc-12"
+            export CXX="g++-12"
+        else
+            export CC="gcc"
+            export CXX="g++"
+        fi
     else
         if ! command -v clang++-12 >/dev/null; then
             echo "ERROR: clang++-12 not found. On Ubuntu 24.04 and newer, build with Unreal Engine's"
