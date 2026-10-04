@@ -19,8 +19,9 @@ case $platform in
   Linux) src="$archive/Linux" ;;
   *) echo "unknown platform $platform"; exit 1 ;;
 esac
-# Saved/ holds logs and config from test runs (which can include command lines and tokens)
-rsync -a --exclude 'Saved/' "$src/" "$stage/"
+# Saved/ holds logs and config from test runs (which can include command lines and tokens), and
+# Cesium's request cache holds the streamed tiles (not ours to redistribute) and their request URLs
+rsync -a --exclude 'Saved/' --exclude 'cesium-request-cache.sqlite*' "$src/" "$stage/"
 
 # Each settings file, and a _network copy that accepts connections from other machines (and WSL)
 for f in "$@"; do

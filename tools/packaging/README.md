@@ -59,4 +59,4 @@ tools/packaging/assemble_release.sh Blocks Win64 "$HERCULES_OUT/packages/Blocks_
 tools/packaging/assemble_release.sh Cesium Linux "$HERCULES_OUT/packages/Cesium_Linux" ros2/settings/hero_blocks_team.json
 ```
 
-Each zip in `$HERCULES_OUT/release` holds the game without its `Saved/` folder (test logs can contain command lines and tokens), the settings files plus `_network` copies, `run_hero_team` launchers, the packaged-environments guide as `README.md`, and `VERSION.txt` with the engine version and the commit it was built from. Build from a clean checkout so `VERSION.txt` doesn't report uncommitted changes.
+Each zip in `$HERCULES_OUT/release` holds the game without its `Saved/` folder (test logs can contain command lines and tokens) or Cesium's request cache (streamed tiles, which can't be redistributed), the settings files plus `_network` copies, `run_hero_team` launchers, the packaged-environments guide as `README.md`, and `VERSION.txt` with the engine version and the commit it was built from. Build from a clean checkout so `VERSION.txt` doesn't report uncommitted changes.
