@@ -9,7 +9,7 @@ Packaged (cooked) builds of the HERCULES environments run without Unreal Engine 
 | `HERCULES-Blocks` | Cosys-AirSim's Blocks test world | `Drone1`, `Drone2`, `Husky1`, `Husky2` with `settings/hero_blocks_team.json` |
 | `HERCULES-Cesium` | Anywhere on Earth, streamed from [Cesium ion](https://cesium.com/platform/cesium-ion/) (Google Photorealistic 3D Tiles); see [Cesium world](#cesium-world) | same |
 
-The packages are built with Unreal Engine 5.8.3 from the `ue5.8-port` branch of HERCULES. Each zip holds a `VERSION.txt` with the exact commit.
+The packages are built with Unreal Engine 5.8.3 from the `hercules-envs` branch of HERCULES. Each zip holds a `VERSION.txt` with the exact commit.
 
 ## Requirements
 
