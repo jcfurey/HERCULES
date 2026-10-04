@@ -300,6 +300,7 @@ HERCULES is under active development — here's what's in progress and coming ne
 - [ ] **Multimodal dataset** — upload the full desert / forest / city sequences to Hugging Face.
 - [ ] **Sensor setup docs** — expand the LWIR and night-vision configuration and parameter references.
 - [ ] **Additional dynamic agents & environments** — more MetaHuman / VehicleAI / AnimalAI presets.
+- [ ] **Ouster lidar** — simulate Ouster sensors with [ouster_sim_core](https://github.com/jcfurey/ouster_sim_core): its calibrated firing geometry cast on the GPU (`HerculesRayTracing`), and standard Ouster packets from a companion host, so unmodified `ouster_ros` drivers decode them.
 
 Suggestions or bugs? [Open an issue](https://github.com/lunarlab-gatech/HERCULES/issues).
 
