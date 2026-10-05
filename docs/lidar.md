@@ -139,7 +139,10 @@ Ouster's sensor frame (`os_sensor`), from which ouster-ros places its lidar and 
 }
 ```
 
-See [Ouster Sensor](settings.md#ouster-sensor) for its keys and their defaults.
+See [Ouster Sensor](settings.md#ouster-sensor) for its keys and their defaults. The host and
+`os_cloud` start with
+`ros2 launch hercules_sensors_ouster hercules_ouster.launch.py metadata:=<sensor.json> sensor_frame:=Husky1/os_top`;
+the host listens on `HostPort` for the simulator.
 
 ## Casting rays on the GPU
 

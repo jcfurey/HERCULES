@@ -300,7 +300,7 @@ HERCULES is under active development — here's what's in progress and coming ne
 - [ ] **Multimodal dataset** — upload the full desert / forest / city sequences to Hugging Face.
 - [ ] **Sensor setup docs** — expand the LWIR and night-vision configuration and parameter references.
 - [ ] **Additional dynamic agents & environments** — more MetaHuman / VehicleAI / AnimalAI presets.
-- [ ] **Ouster lidar** — simulate Ouster sensors with [ouster_sim_core](https://github.com/jcfurey/ouster_sim_core): its calibrated firing geometry cast on the GPU (`HerculesRayTracing`), and standard Ouster packets from a companion host, so unmodified `ouster_ros` drivers decode them. The built-in lidar already fires an Ouster sensor's calibrated beam table (`VerticalAngles`/`AzimuthOffsets`, imported from its metadata; see [LIDAR](docs/lidar.md#calibrated-beam-tables-ouster)).
+- [ ] **Ouster lidar** — simulate Ouster sensors with [ouster_sim_core](https://github.com/jcfurey/ouster_sim_core): its calibrated firing geometry cast on the GPU (`HerculesRayTracing`), and standard Ouster packets from a companion host, so unmodified `ouster_ros` drivers decode them. The host and its stream protocol ([hercules_sensors_ouster](https://github.com/jcfurey/hercules_sensors_ouster)) and the Ouster sensor settings (`SensorType` 12) are done; the Unreal component that casts the rays is not. The built-in lidar already fires an Ouster sensor's calibrated beam table (`VerticalAngles`/`AzimuthOffsets`, imported from its metadata; see [LIDAR](docs/lidar.md#calibrated-beam-tables-ouster)).
 
 Suggestions or bugs? [Open an issue](https://github.com/lunarlab-gatech/HERCULES/issues).
 
