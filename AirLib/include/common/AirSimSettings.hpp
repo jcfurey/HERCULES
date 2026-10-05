@@ -388,6 +388,16 @@ namespace airlib
 
             RCSettings rc;
 
+            //written by hercules_urdf_import for robots imported from a URDF;
+            //relative paths are relative to the settings file
+            struct UrdfSetting
+            {
+                std::string visuals; //visual manifest the pawn is dressed with
+                std::string robot_description; //URDF robot_state_publisher publishes
+                bool hide_base_mesh = false; //hide the stock pawn mesh under the visuals
+                bool two_sided = false; //also draw back faces (open or badly wound meshes)
+            } urdf;
+
             VehicleSetting()
             {
             }
@@ -1018,6 +1028,14 @@ namespace airlib
 
             loadCameraSettings(settings_json, vehicle_setting->cameras, camera_defaults);
             loadSensorSettings(settings_json, "Sensors", vehicle_setting->sensors, sensor_defaults, simmode_name);
+
+            Settings urdf_json;
+            if (settings_json.getChild("Urdf", urdf_json)) {
+                vehicle_setting->urdf.visuals = urdf_json.getString("Visuals", "");
+                vehicle_setting->urdf.robot_description = urdf_json.getString("RobotDescription", "");
+                vehicle_setting->urdf.hide_base_mesh = urdf_json.getBool("HideBaseMesh", vehicle_setting->urdf.hide_base_mesh);
+                vehicle_setting->urdf.two_sided = urdf_json.getBool("TwoSided", vehicle_setting->urdf.two_sided);
+            }
 
             return vehicle_setting;
         }

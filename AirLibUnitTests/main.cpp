@@ -5,10 +5,12 @@
 #include "WorkerThreadTest.hpp"
 #include "QuaternionTest.hpp"
 #include "CelestialTests.hpp"
+#include "UrdfVisualTest.hpp"
 
 #include <cstring>
 #include <exception>
 #include <iostream>
+#include <string>
 
 int main(int argc, char** argv)
 {
@@ -18,6 +20,14 @@ int main(int argc, char** argv)
     tests.emplace_back(new QuaternionTest());
     tests.emplace_back(new CelestialTest());
     tests.emplace_back(new SettingsTest());
+
+    std::string urdf_import_dir;
+    for (int arg = 1; arg + 1 < argc; ++arg) {
+        // output directory of hercules_urdf_import to validate
+        if (std::strcmp(argv[arg], "--urdf-import-dir") == 0)
+            urdf_import_dir = argv[arg + 1];
+    }
+    tests.emplace_back(new UrdfVisualTest(urdf_import_dir));
     // SimpleFlightTest is a manual soak harness: it does not yet reproduce the
     // plugin's multirotor physics setup (it reports NaN velocities), so it only
     // runs on request.

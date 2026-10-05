@@ -47,6 +47,7 @@ def test_skid_robot_settings_and_frames(tmp_path):
     assert vehicle['VehicleType'] == 'PhysXCar'
     assert vehicle['PawnPath'] == 'UGVPawn'
     assert vehicle['Urdf']['HideBaseMesh'] is True
+    assert vehicle['Urdf']['TwoSided'] is False
     assert os.path.isfile(vehicle['Urdf']['Visuals'])
     assert os.path.isfile(vehicle['Urdf']['RobotDescription'])
 
@@ -70,6 +71,8 @@ def test_skid_robot_settings_and_frames(tmp_path):
     assert lidar['Z'] == pytest.approx(-(0.13 + 0.3 + 0.036))
 
     assert vehicle['Sensors']['imu'] == {'SensorType': 2, 'Enabled': True}
+    imu = next(s for s in result.manifest['sensors'] if s['name'] == 'imu')
+    assert imu['link'] == 'imu_link' and imu['frd_pose'] is None
     assert vehicle['Sensors']['sonar_front']['SensorType'] == 5
     assert vehicle['Sensors']['sonar_front']['MaxDistance'] == 4.0
     assert any('bumper_contact' in w for w in result.warnings)
@@ -274,12 +277,14 @@ def test_missing_mesh_is_a_warning_not_an_error(tmp_path):
 def test_cli(tmp_path, capsys):
     rc = main([os.path.join(URDF, 'quadrotor.urdf'), '--name', 'Drone3', '--drive',
                'multirotor', '-o', str(tmp_path), '--joint', 'gimbal_pitch=0.3',
-               '--yaw', '90'])
+               '--yaw', '90', '--two-sided', '--show-base-mesh'])
     assert rc == 0
     out = capsys.readouterr()
     assert 'Imported "Drone3" as SimpleFlight' in out.out
     settings = json.loads((tmp_path / 'Drone3.settings.json').read_text())
     assert settings['Vehicles']['Drone3']['Yaw'] == 90.0
+    assert settings['Vehicles']['Drone3']['Urdf']['TwoSided'] is True
+    assert settings['Vehicles']['Drone3']['Urdf']['HideBaseMesh'] is False
     assert main([os.path.join(URDF, 'quadrotor.urdf'), '--name', 'D', '--drive',
                  'multirotor', '-o', str(tmp_path), '--joint', 'gimbal_pitch']) == 1
     assert 'NAME=VALUE' in capsys.readouterr().err

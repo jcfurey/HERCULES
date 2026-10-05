@@ -12,14 +12,17 @@ import tempfile
 import time
 import unittest
 
-import launch
-from launch.actions import IncludeLaunchDescription
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-import launch_testing
-import launch_testing.actions
 import pytest
-import rclpy
-from tf2_ros import Buffer, TransformListener
+
+# Needs a sourced ROS 2 installation; the rest of the suite does not.
+launch = pytest.importorskip('launch')
+launch_testing = pytest.importorskip('launch_testing')
+rclpy = pytest.importorskip('rclpy')
+
+from launch.actions import IncludeLaunchDescription  # noqa: E402, I100
+from launch.launch_description_sources import PythonLaunchDescriptionSource  # noqa: E402
+import launch_testing.actions  # noqa: E402
+from tf2_ros import Buffer, TransformListener  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))

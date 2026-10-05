@@ -64,6 +64,8 @@ def build_parser():
                         help='spawn yaw in degrees (clockwise seen from above)')
     parser.add_argument('--show-base-mesh', action='store_true',
                         help="keep drawing the stock pawn's own mesh under the URDF visuals")
+    parser.add_argument('--two-sided', action='store_true',
+                        help='draw back faces too (for open or inconsistently wound meshes)')
     parser.add_argument('--merge-into', metavar='SETTINGS_JSON',
                         help='add the vehicle to this settings file (written to the '
                              'output directory; the input is not modified)')
@@ -104,6 +106,7 @@ def main(argv=None):
             pawn_path=args.pawn_path,
             rewrite_mesh_uris=not args.keep_mesh_uris,
             xacro_args=_pairs(args.xacro_arg, '--xacro-arg'),
+            two_sided=args.two_sided,
         )
         result = import_robot(options)
     except (UrdfError, MeshError, OSError) as exc:

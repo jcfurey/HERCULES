@@ -58,7 +58,7 @@ class ImportOptions:
                  yaw_deg=0.0, hide_base_mesh=True, freeze_joints=True,
                  relative_paths=False, package_paths=None, odom_frame='odom_local',
                  merge_settings=None, vehicle_type=None, pawn_path=None,
-                 rewrite_mesh_uris=True, xacro_args=None):
+                 rewrite_mesh_uris=True, xacro_args=None, two_sided=False):
         self.urdf_path = urdf_path
         self.vehicle_name = vehicle_name
         self.drive = drive
@@ -80,6 +80,7 @@ class ImportOptions:
         self.pawn_path = pawn_path
         self.rewrite_mesh_uris = rewrite_mesh_uris
         self.xacro_args = dict(xacro_args or {})
+        self.two_sided = two_sided
 
 
 class ImportResult:
@@ -247,7 +248,9 @@ def import_robot(options):
         result.sensors.append({
             'name': spec.name, 'kind': spec.kind, 'link': spec.link,
             'source': spec.source,
-            'frd_pose': None if pose is None else {
+            # the pose written to settings (none for sensors HERCULES models at
+            # the vehicle origin, even when the URDF mounts them elsewhere)
+            'frd_pose': None if pose is None or spec.kind in sensor_mod.POSELESS else {
                 'position': [settings_pose(pose)[k] for k in ('X', 'Y', 'Z')],
                 'orientation': _quat_dict(_round(flu_to_frd_quat(pose.rotation)))},
         })
@@ -381,6 +384,7 @@ def import_robot(options):
         'Visuals': ref(manifest_path),
         'RobotDescription': ref(urdf_path),
         'HideBaseMesh': bool(options.hide_base_mesh),
+        'TwoSided': bool(options.two_sided),
     }
     if cameras:
         vehicle['Cameras'] = cameras
