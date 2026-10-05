@@ -31,6 +31,7 @@ class Geometry:
 
 
 class Visual:
+
     def __init__(self, name, origin, geometry, rgba=None, material_name=None):
         self.name = name
         self.origin = origin
@@ -40,12 +41,14 @@ class Visual:
 
 
 class Link:
+
     def __init__(self, name):
         self.name = name
         self.visuals = []
 
 
 class Joint:
+
     MOVABLE = ('revolute', 'continuous', 'prismatic')
     TYPES = MOVABLE + ('fixed', 'floating', 'planar')
 
@@ -92,6 +95,7 @@ class GazeboSensor:
 
 
 class UrdfModel:
+
     def __init__(self, name, links, joints, gazebo_sensors, materials):
         self.name = name
         self.links = links

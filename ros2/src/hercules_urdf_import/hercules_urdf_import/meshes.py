@@ -17,6 +17,7 @@ import xml.etree.ElementTree as ET
 
 
 class MeshError(ValueError):
+
     pass
 
 

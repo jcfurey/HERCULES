@@ -53,6 +53,7 @@ _VEHICLE_NAME = re.compile(r'^[A-Za-z][A-Za-z0-9_]*$')
 
 
 class ImportOptions:
+
     def __init__(self, urdf_path, vehicle_name, drive, output_dir,
                  sim_mode='hero', base_link=None, joint_positions=None,
                  sensor_config=None, gazebo_sensors=True, position=(0.0, 0.0, 0.0),
@@ -85,6 +86,7 @@ class ImportOptions:
 
 
 class ImportResult:
+
     def __init__(self):
         self.settings = None
         self.vehicle = None

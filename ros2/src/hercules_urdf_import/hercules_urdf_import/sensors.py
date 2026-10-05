@@ -60,6 +60,7 @@ _GAZEBO_SIMPLE_TYPES = {'imu': 'imu', 'gps': 'gps', 'navsat': 'gps',
 
 
 class SensorSpec:
+
     def __init__(self, kind, name, link=None, offset=None, params=None, source='config'):
         if kind not in KINDS:
             raise UrdfError('unknown sensor kind "%s" (expected one of %s)'
