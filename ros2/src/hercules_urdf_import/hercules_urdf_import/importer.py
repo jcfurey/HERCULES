@@ -207,7 +207,9 @@ def import_robot(options):
     config_specs, disabled = [], set()
     config = _sensor_config(options.sensor_config)
     if config:
-        config_specs, disabled = sensor_mod.from_config(config, model)
+        base_dir = os.path.dirname(os.path.abspath(options.sensor_config)) \
+            if isinstance(options.sensor_config, str) else os.getcwd()
+        config_specs, disabled = sensor_mod.from_config(config, model, base_dir)
     specs = sensor_mod.merge(gazebo_specs, config_specs, disabled)
     if options.drive == 'multirotor' and sim_mode == 'Multirotor' and \
             any(s.kind == 'gpulidar' for s in specs):

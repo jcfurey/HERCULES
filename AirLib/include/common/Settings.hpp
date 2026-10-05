@@ -154,6 +154,19 @@ namespace airlib
             return false;
         }
 
+        // the numeric elements of array `name` (other elements are skipped)
+        std::vector<float> getFloatArray(const std::string& name) const
+        {
+            std::vector<float> values;
+            if (doc_.count(name) == 1 && doc_[name].is_array()) {
+                for (const auto& item : doc_[name]) {
+                    if (item.is_number())
+                        values.push_back(item.get<float>());
+                }
+            }
+            return values;
+        }
+
         // the string elements of array `name` (other elements are skipped)
         std::vector<std::string> getStringArray(const std::string& name) const
         {

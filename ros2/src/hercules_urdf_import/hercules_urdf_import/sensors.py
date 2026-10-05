@@ -15,8 +15,10 @@ declared ``frame: optical`` so it is rotated back to the body convention.
 """
 
 import math
+import os
 import re
 
+from .ouster import read_ouster_metadata
 from .transforms import OPTICAL_FROM_BODY, Transform
 from .urdf_model import UrdfError
 
@@ -204,19 +206,20 @@ _CONFIG_KEYS = {
     'camera': {'width', 'height', 'fov_deg', 'image_types', 'frame'},
     'lidar': {'channels', 'range', 'rotations_per_second', 'measurements_per_cycle',
               'horizontal_fov_deg', 'vertical_fov_deg', 'draw_debug_points',
-              'generate_noise'},
+              'generate_noise', 'ouster_metadata'},
     'distance': {'min', 'max'},
 }
 _CONFIG_KEYS['gpulidar'] = _CONFIG_KEYS['lidar']
 _COMMON_KEYS = {'name', 'link', 'xyz', 'rpy', 'enabled'}
 
 
-def from_config(config, model):
+def from_config(config, model, base_dir='.'):
     """
     Parse the sensor config mapping into SensorSpecs.
 
     Returns (specs, disabled_names): a sensor listed with ``enabled: false``
-    removes a same-named sensor found in the URDF.
+    removes a same-named sensor found in the URDF. ``ouster_metadata`` paths
+    are relative to ``base_dir``.
     """
     if not isinstance(config, dict):
         raise UrdfError('sensor config must be a mapping of sections')
@@ -252,6 +255,14 @@ def from_config(config, model):
                 [float(v) for v in entry.get('xyz', (0, 0, 0))],
                 [float(v) for v in entry.get('rpy', (0, 0, 0))])
             params = {k: v for k, v in entry.items() if k not in _COMMON_KEYS}
+            if 'ouster_metadata' in params:
+                metadata = os.path.expanduser(params.pop('ouster_metadata'))
+                beams = read_ouster_metadata(os.path.join(base_dir, metadata))
+                for key in ('channels', 'vertical_fov_deg'):
+                    if key in params:
+                        raise UrdfError('%s "%s": %s comes from ouster_metadata'
+                                        % (kind, name, key))
+                params = dict({k: v for k, v in beams.items() if k != 'product'}, **params)
             if kind == 'camera':
                 frame = params.pop('frame', 'body')
                 if frame not in ('body', 'optical'):
@@ -323,7 +334,12 @@ def lidar_settings(spec):
                         'and positive rotations_per_second and range are required'
                         % spec.name)
     h_min, h_max = (float(v) for v in p.get('horizontal_fov_deg', (-180.0, 180.0)))
-    v_min, v_max = (float(v) for v in p.get('vertical_fov_deg', (-15.0, 15.0)))
+    vertical_angles = [float(v) for v in p.get('vertical_angles', ())]
+    if vertical_angles:
+        channels = len(vertical_angles)
+        v_min, v_max = min(vertical_angles), max(vertical_angles)
+    else:
+        v_min, v_max = (float(v) for v in p.get('vertical_fov_deg', (-15.0, 15.0)))
     if h_min >= h_max or v_min > v_max:
         raise UrdfError('lidar "%s": FOV ranges must be [min, max]' % spec.name)
     settings = {
@@ -340,6 +356,16 @@ def lidar_settings(spec):
         raise UrdfError('lidar "%s": rotations_per_second must be a whole '
                         'number, got %s' % (spec.name, rps))
     settings['RotationsPerSecond'] = int(round(rps))
+    if vertical_angles and spec.kind == 'lidar':
+        # a calibrated beam table (both are in the sim's convention already:
+        # elevation positive up, azimuth offset clockwise)
+        settings['VerticalAngles'] = [round(v, 6) for v in vertical_angles]
+        offsets = [float(v) for v in p.get('azimuth_offsets', ())]
+        if offsets:
+            if len(offsets) != channels:
+                raise UrdfError('lidar "%s": %d azimuth offsets for %d channels'
+                                % (spec.name, len(offsets), channels))
+            settings['AzimuthOffsets'] = [round(v, 6) for v in offsets]
     if h_max - h_min < 360.0 - 1e-3:
         settings['HorizontalFOVStart'] = round(-h_max, 6)
         settings['HorizontalFOVEnd'] = round(-h_min, 6)
@@ -358,6 +384,10 @@ def settings_entry(spec, pose_settings, warnings):
         return entry
     entry = {'SensorType': SENSOR_TYPES[spec.kind], 'Enabled': True}
     if spec.kind in ('lidar', 'gpulidar'):
+        if spec.kind == 'gpulidar' and spec.params.get('vertical_angles'):
+            warnings.append('GPU lidar "%s": the GPU lidar spaces its channels evenly, so the '
+                            'beam table is approximated over the same vertical FOV; use a '
+                            'CPU lidar (lidars:) for calibrated beam angles' % spec.name)
         entry = lidar_settings(spec)
         entry.update(pose_settings)
     elif spec.kind == 'distance':

@@ -54,5 +54,7 @@ jobs:
         python3 -m hercules_urdf_import ../../../$fixtures/urdf/quadrotor.urdf --name Drone3 --drive multirotor \
           --joint gimbal_pitch=0.3 --joint gimbal_yaw=-0.7 -o "$out"
         python3 -m hercules_urdf_import ../../../$fixtures/urdf/mobile_manipulator.urdf --name Arm1 --drive skid -o "$out"
+        python3 -m hercules_urdf_import ../../../$fixtures/urdf/skid_robot.urdf --name Ouster1 --drive skid \
+          --no-gazebo-sensors --sensors ../../../$fixtures/config/ouster_sensors.yaml -o "$out"
         cd -
         ./build_release/output/bin/AirLibUnitTests --urdf-import-dir "$out"

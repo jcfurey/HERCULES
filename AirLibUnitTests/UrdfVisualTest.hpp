@@ -5,6 +5,7 @@
 #include "common/AirSimSettings.hpp"
 #include "common/UrdfVisualManifest.hpp"
 #include "common/VectorMath.hpp"
+#include "sensors/lidar/LidarSimpleParams.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -42,6 +43,7 @@ namespace airlib
 
     private:
         std::string import_dir_;
+        int lidars_ = 0;
 
         static bool near(real_T a, real_T b, real_T tol = 1e-5f)
         {
@@ -231,6 +233,20 @@ namespace airlib
                 const auto doc = nlohmann::json::parse(manifest_stream);
                 const auto settings = nlohmann::json::parse(settings_stream);
                 const auto& vehicle = settings.at("Vehicles").at(doc.at("vehicle").get<std::string>());
+
+                // AirLib must accept the settings, and lidar beam tables must
+                // agree with their channel count
+                AirSimSettings::initializeSettings(settings.dump());
+                AirSimSettings::singleton().load(nullptr);
+                for (const auto& sensor : AirSimSettings::singleton().vehicles.at(doc.at("vehicle").get<std::string>())->sensors) {
+                    if (sensor.second->sensor_type != SensorBase::SensorType::Lidar)
+                        continue;
+                    LidarSimpleParams lidar;
+                    lidar.initializeFromSettings(*static_cast<const AirSimSettings::LidarSetting*>(sensor.second.get()));
+                    testAssert(lidar.channelElevations().size() == lidar.number_of_channels,
+                               "lidar " + sensor.first + " beam table does not match its channels");
+                    ++lidars_;
+                }
                 for (const auto& sensor : doc.at("sensors")) {
                     if (sensor.at("frd_pose").is_null())
                         continue;
@@ -256,7 +272,7 @@ namespace airlib
             }
             testAssert(manifests > 0, "no *.visuals.json in " + import_dir_);
             std::cout << "UrdfVisualTest: checked " << manifests << " imported robot(s), " << sensors
-                      << " sensor pose(s)" << std::endl;
+                      << " sensor pose(s), " << lidars_ << " lidar(s)" << std::endl;
         }
     };
 }

@@ -98,6 +98,7 @@ private:
     const NedTransform* ned_transform_;
 	float saved_clockspeed_ = 1;
     msr::airlib::vector<msr::airlib::real_T> laser_angles_;
+    msr::airlib::vector<msr::airlib::real_T> laser_azimuth_offsets_; // degrees, clockwise, per laser
     msr::airlib::vector<FVector> point_cloud_draw_;
 	uint32 current_horizontal_angle_index_ = 0;
 	TArray<float> horizontal_angles_;
