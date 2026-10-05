@@ -14,6 +14,7 @@ Each sensor is associated with a integer enum specifying its sensor type.
 * GPULidar = 8
 * Uwb = 10
 * Wi-Fi = 11
+* Ouster = 12 (settings and ROS frame only for now, see [Ouster sensors](lidar.md#ouster-sensors))
 
 **Note** :  Cameras are configured differently than the other sensors and do not have an enum associated with them. Look at [general settings](settings.md) and [image API](image_apis.md) for camera config and API.
 

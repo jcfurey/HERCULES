@@ -438,6 +438,28 @@ Each simulation mode will go through the list of vehicles specified in this sett
 }
 ```
 
+### Ouster Sensor
+An Ouster sensor (`"SensorType": 12`) in a vehicle's `Sensors` describes an Ouster lidar for [hercules_sensors_ouster](https://github.com/jcfurey/hercules_sensors_ouster), a host process that turns the sensor's rays into Ouster packets for ouster-ros. The Unreal side, which would cast those rays and stream them to the host process, is not implemented yet: the simulator logs a warning and ignores the sensor. The ROS 2 wrapper publishes no topics for it, only the static transform of its sensor frame, `<vehicle>/<sensor>`, for ouster-ros to use as its `sensor_frame` (see [Ouster sensors](lidar.md#ouster-sensors)).
+
+```json
+"Sensors": {
+    "os_top": {
+        "SensorType": 12,
+        "Enabled": true,
+        "X": 0.1, "Y": 0, "Z": -0.6,
+        "Roll": 0, "Pitch": 0, "Yaw": 0,
+        "HostAddress": "127.0.0.1",
+        "HostPort": 7600
+    }
+}
+```
+
+- `Enabled`: As for the other sensors, the sensor is only used when this is `true`.
+- `X, Y, Z`: Position of the Ouster sensor frame (`os_sensor` in ouster-ros) on the vehicle, in meters, in the vehicle's NED body frame (x forward, y right, z down), as for the [lidar](lidar.md#lidar-configuration). Unset values are 0.
+- `Roll, Pitch, Yaw`: Orientation of the sensor frame on the vehicle, in degrees, as for the lidar. Unset values are 0.
+- `HostAddress`: Address of the hercules_sensors_ouster host process. Default `"127.0.0.1"`.
+- `HostPort`: Port of the host process, an integer from 1 to 65535; other values are rejected when the settings are loaded. Default `7600`.
+
 ### Using PX4
 By default we use [simple_flight](simple_flight.md) so you don't have to do separate HITL or SITL setups. We also support ["PX4"](px4_setup.md) for advanced users. To use PX4 with HERCULES, you can use the following for `Vehicles` setting:
 

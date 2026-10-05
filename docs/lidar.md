@@ -115,6 +115,32 @@ rate of the sensor's `lidar_mode`. Point clouds keep HERCULES' column-major orde
 one azimuth step after the other, in the table's channel order. The GPU lidar (`SensorType` 8) spaces
 its channels evenly and does not use these keys.
 
+## Ouster sensors
+
+An Ouster sensor (`SensorType` 12) stands for an Ouster lidar whose rays
+[hercules_sensors_ouster](https://github.com/jcfurey/hercules_sensors_ouster) turns into Ouster
+packets for ouster-ros. HERCULES does not cast those rays yet (the Unreal side of
+hercules_sensors_ouster is future work), so the simulator ignores the sensor. The ROS 2 wrapper
+publishes the static transform of its sensor frame, `<vehicle>/<sensor>` (`Husky1/os_top` below),
+at the pose given in settings, and no topics. Set ouster-ros's `sensor_frame` parameter to that
+frame, so that its point clouds hang off the vehicle in the TF tree. The pose is that of the
+Ouster's sensor frame (`os_sensor`), from which ouster-ros places its lidar and IMU frames.
+
+```json
+"Husky1": {
+    "VehicleType": "PhysXCar",
+    "Sensors": {
+        "os_top": {
+            "SensorType": 12, "Enabled": true,
+            "X": 0.1, "Y": 0, "Z": -0.6, "Roll": 0, "Pitch": 0, "Yaw": 0,
+            "HostAddress": "127.0.0.1", "HostPort": 7600
+        }
+    }
+}
+```
+
+See [Ouster Sensor](settings.md#ouster-sensor) for its keys and their defaults.
+
 ## Casting rays on the GPU
 
 Where the project has hardware ray tracing enabled and the GPU supports inline ray tracing (DirectX 12 or Vulkan ray tracing, for example an NVIDIA RTX card), the lidar casts its rays on the GPU against the scene's ray tracing structure instead of tracing them one by one on the CPU. The rays, points, labels and noise are the same; in a test in a Cesium city the GPU and CPU point clouds matched to 0.01 cm (median) with identical labels, while the simulator used about 5 fewer CPU cores and lost its lidar frame-time spikes. The game logs which way each lidar casts (`LiDAR on Drone1: rays cast on the GPU`).
