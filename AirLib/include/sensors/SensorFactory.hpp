@@ -32,8 +32,15 @@ namespace airlib
                 return std::shared_ptr<GpsSimple>(new GpsSimple(*static_cast<const AirSimSettings::GpsSetting*>(sensor_setting)));
             case SensorBase::SensorType::Barometer:
                 return std::shared_ptr<BarometerSimple>(new BarometerSimple(*static_cast<const AirSimSettings::BarometerSetting*>(sensor_setting)));
+            case SensorBase::SensorType::Ouster:
+                // the settings are valid, but nothing casts the rays yet
+                Utils::log(Utils::stringf("Ouster sensor '%s' is configured, but HERCULES does not simulate Ouster rays yet "
+                                          "(the Unreal side of hercules_sensors_ouster is future work): ignoring it",
+                                          sensor_setting->sensor_name.c_str()),
+                           Utils::kLogLevelWarn);
+                return nullptr;
             default:
-                throw new std::invalid_argument("Unexpected sensor type");
+                throw std::invalid_argument("Unexpected sensor type");
             }
         }
 

@@ -363,6 +363,27 @@ namespace airlib
         {
         };
 
+        // An Ouster lidar, turned into Ouster packets for ouster_ros by the
+        // hercules_sensors_ouster host process listening at HostAddress:HostPort.
+        // The pose is that of the Ouster sensor frame (os_sensor) on the vehicle,
+        // read like the Lidar and Distance sensors' poses: X, Y, Z in metres in
+        // the vehicle's NED body frame, Roll, Pitch, Yaw in degrees, unset values 0.
+        struct OusterSetting : SensorSetting
+        {
+            Vector3r position = Vector3r::Zero();
+            Rotation rotation; // degrees
+            std::string host_address = "127.0.0.1";
+            int host_port = 7600;
+
+            // the pose as a sensor's relative_pose, built as LidarSimpleParams does
+            Pose relativePose() const
+            {
+                return Pose(position, VectorMath::toQuaternion(Utils::degreesToRadians(rotation.pitch),
+                                                               Utils::degreesToRadians(rotation.roll),
+                                                               Utils::degreesToRadians(rotation.yaw)));
+            }
+        };
+
         struct VehicleSetting
         {
             //required
@@ -1717,6 +1738,9 @@ namespace airlib
             case SensorBase::SensorType::Wifi:
                 sensor_setting = std::unique_ptr<SensorSetting>(new MarLocUwbSetting());
                 break;
+            case SensorBase::SensorType::Ouster:
+                sensor_setting = std::shared_ptr<SensorSetting>(new OusterSetting());
+                break;
             default:
                 throw std::invalid_argument("Unexpected sensor type");
             }
@@ -1736,6 +1760,38 @@ namespace airlib
             // extracted there.  This way default values can be kept in one place.  For example, see the
             // BarometerSimpleParams::initializeFromSettings method.
             sensor_setting->settings = settings_json;
+
+            // AirLib has no Ouster sensor (and so no params object) to read these
+            if (sensor_setting->sensor_type == SensorBase::SensorType::Ouster)
+                initializeOusterSetting(*static_cast<OusterSetting*>(sensor_setting), settings_json);
+        }
+
+        static void initializeOusterSetting(OusterSetting& ouster_setting, const Settings& settings_json)
+        {
+            // the pose, read as LidarSimpleParams::initializeFromSettings reads it
+            auto position = createVectorSetting(settings_json, VectorMath::nanVector());
+            auto rotation = createRotationSetting(settings_json, Rotation::nanRotation());
+
+            ouster_setting.position = position;
+            if (std::isnan(ouster_setting.position.x()))
+                ouster_setting.position.x() = 0;
+            if (std::isnan(ouster_setting.position.y()))
+                ouster_setting.position.y() = 0;
+            if (std::isnan(ouster_setting.position.z()))
+                ouster_setting.position.z() = 0;
+
+            ouster_setting.rotation.pitch = !std::isnan(rotation.pitch) ? rotation.pitch : 0;
+            ouster_setting.rotation.roll = !std::isnan(rotation.roll) ? rotation.roll : 0;
+            ouster_setting.rotation.yaw = !std::isnan(rotation.yaw) ? rotation.yaw : 0;
+
+            ouster_setting.host_address = settings_json.getString("HostAddress", ouster_setting.host_address);
+
+            const double host_port = settings_json.getDouble("HostPort", ouster_setting.host_port);
+            if (!(host_port >= 1 && host_port <= 65535) || host_port != std::floor(host_port))
+                throw std::invalid_argument(Utils::stringf(
+                    "Ouster sensor '%s': HostPort must be an integer from 1 to 65535, got %g",
+                    ouster_setting.sensor_name.c_str(), host_port));
+            ouster_setting.host_port = static_cast<int>(host_port);
         }
 
         // creates and intializes sensor settings from json
@@ -1745,8 +1801,8 @@ namespace airlib
                                        const std::string& simmode_name)
 
         {
-            // NOTE: Increase type if number of sensors goes above 8
-            uint8_t present_sensors_bitmask = 0;
+            // NOTE: Increase type if sensor type values go above 31
+            uint32_t present_sensors_bitmask = 0;
 
             msr::airlib::Settings sensors_child;
             if (settings_json.getChild(collectionName, sensors_child)) {

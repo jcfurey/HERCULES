@@ -7,6 +7,7 @@
 #include "CelestialTests.hpp"
 #include "UrdfVisualTest.hpp"
 #include "LidarParamsTest.hpp"
+#include "OusterSettingsTest.hpp"
 
 #include <cstring>
 #include <exception>
@@ -30,6 +31,7 @@ int main(int argc, char** argv)
     }
     tests.emplace_back(new UrdfVisualTest(urdf_import_dir));
     tests.emplace_back(new LidarParamsTest());
+    tests.emplace_back(new OusterSettingsTest());
     // SimpleFlightTest is a manual soak harness: it does not yet reproduce the
     // plugin's multirotor physics setup (it reports NaN velocities), so it only
     // runs on request.
