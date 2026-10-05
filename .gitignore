@@ -433,3 +433,6 @@ PythonClient/segmentation/*.csv
 !/Unreal/Environments/HerculesEnvs/Content/Hercules/
 /Unreal/Environments/HerculesEnvs/cesium-request-cache.sqlite*
 /Unreal/Environments/HerculesEnvs/Config/*.release-backup
+
+# Python wheels (e.g. from pip download)
+*.whl
