@@ -52,19 +52,13 @@ void UnrealLidarSensor::createLasers()
 	if (number_of_lasers <= 0)
 		return;
 
-	// calculate verticle angle distance between each laser
-	float delta_angle = 0;
-	if (number_of_lasers > 1)
-		delta_angle = (params.vertical_FOV_upper - (params.vertical_FOV_lower)) /
-					  static_cast<float>(number_of_lasers - 1);
-
-	// store vertical angles for each laser
-	laser_angles_.clear();
+	// elevation and azimuth offset of each laser: evenly spread over the
+	// vertical FOV, or a calibrated per-channel table (VerticalAngles /
+	// AzimuthOffsets, e.g. from an Ouster sensor's metadata)
+	laser_angles_ = params.channelElevations();
+	laser_azimuth_offsets_.clear();
 	for (auto i = 0u; i < number_of_lasers; ++i)
-	{
-		const float vertical_angle = params.vertical_FOV_upper - static_cast<float>(i) * delta_angle;
-		laser_angles_.emplace_back(vertical_angle);
-	}
+		laser_azimuth_offsets_.emplace_back(params.channelAzimuthOffset(i));
 
 	current_horizontal_angle_index_ = horizontal_angles_.Num() - 1;
 }
@@ -249,7 +243,7 @@ Vector3r point;
 FVector  draw_point;
 std::string label;
 
-if (shootLaser(lidar_pose, vehicle_pose, laser, horizontal_angles_[angle_index], vertical_angle,
+if (shootLaser(lidar_pose, vehicle_pose, laser, horizontal_angles_[angle_index] + laser_azimuth_offsets_[laser], vertical_angle,
 params, params.generate_noise ? noise_samples[ray] : 0.0f, point, label, draw_point))
 {
 point_cloud[current_point_index * 3    ] = point.x();
@@ -440,7 +434,8 @@ bool UnrealLidarSensor::castOnGpu(const msr::airlib::Pose& lidar_pose, const msr
 		for (uint32 laser = 0; laser < number_of_lasers; ++laser)
 		{
 			const msr::airlib::Quaternionr ray_q_l = VectorMath::toQuaternion(
-				msr::airlib::Utils::degreesToRadians(laser_angles_[laser]), 0, msr::airlib::Utils::degreesToRadians(horizontal_angles_[angle.Key]));
+				msr::airlib::Utils::degreesToRadians(laser_angles_[laser]), 0,
+				msr::airlib::Utils::degreesToRadians(horizontal_angles_[angle.Key] + laser_azimuth_offsets_[laser]));
 			const msr::airlib::Quaternionr ray_q_w = VectorMath::coordOrientationAdd(VectorMath::coordOrientationAdd(ray_q_l, lidar_pose.orientation), vehicle_pose.orientation);
 			const Vector3r end = VectorMath::rotateVector(VectorMath::front(), ray_q_w, true) * params.range + start;
 			const FVector segment = lidarStart(ned_transform_, external_, end) - batch->start;

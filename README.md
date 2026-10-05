@@ -282,7 +282,7 @@ HERCULES exports **time-synchronized multimodal data** for heterogeneous robot t
 
 ## Dataset
 
-Time-synchronized, multimodal sequences (RGB, depth, semantic segmentation, LiDAR, poses) for heterogeneous UAV–UGV teams across the desert, forest, and city worlds are hosted on Hugging Face:
+Time-synchronized, multimodal sequences (RGB, depth, semantic segmentation, LiDAR, poses) for heterogeneous UAV–UGV teams across the desert, forest, and city worlds have their home on Hugging Face; uploading the full sequences is still on the [Roadmap](#roadmap):
 
 **➡️ [huggingface.co/datasets/GeorgiaTech/HERCULES](https://huggingface.co/datasets/GeorgiaTech/HERCULES)**
 
@@ -300,7 +300,7 @@ HERCULES is under active development — here's what's in progress and coming ne
 - [ ] **Multimodal dataset** — upload the full desert / forest / city sequences to Hugging Face.
 - [ ] **Sensor setup docs** — expand the LWIR and night-vision configuration and parameter references.
 - [ ] **Additional dynamic agents & environments** — more MetaHuman / VehicleAI / AnimalAI presets.
-- [ ] **Ouster lidar** — simulate Ouster sensors with [ouster_sim_core](https://github.com/jcfurey/ouster_sim_core): its calibrated firing geometry cast on the GPU (`HerculesRayTracing`), and standard Ouster packets from a companion host, so unmodified `ouster_ros` drivers decode them.
+- [ ] **Ouster lidar** — simulate Ouster sensors with [ouster_sim_core](https://github.com/jcfurey/ouster_sim_core): its calibrated firing geometry cast on the GPU (`HerculesRayTracing`), and standard Ouster packets from a companion host, so unmodified `ouster_ros` drivers decode them. The built-in lidar already fires an Ouster sensor's calibrated beam table (`VerticalAngles`/`AzimuthOffsets`, imported from its metadata; see [LIDAR](docs/lidar.md#calibrated-beam-tables-ouster)).
 
 Suggestions or bugs? [Open an issue](https://github.com/lunarlab-gatech/HERCULES/issues).
 

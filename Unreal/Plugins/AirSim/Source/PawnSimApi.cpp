@@ -9,6 +9,7 @@
 #include "common/ClockFactory.hpp"
 #include "PIPCamera.h"
 #include "NedTransform.h"
+#include "UrdfVisuals.h"
 #include "common/EarthUtils.hpp"
 
 #include "Materials/MaterialParameterCollectionInstance.h"
@@ -51,6 +52,10 @@ void PawnSimApi::initialize()
 
     setupCamerasFromSettings(params_.cameras);
     image_capture_.reset(new UnrealImageCapture(&cameras_));
+
+    //robots imported from a URDF: dress the pawn in the robot's meshes (after
+    //the bounds above were measured, and without collision)
+    FUrdfVisuals::Attach(params_.pawn, *getVehicleSetting(), getNedTransform());
 
     //add listener for pawn's collision event
     params_.pawn_events->getCollisionSignal().connect_member(this, &PawnSimApi::onCollision);

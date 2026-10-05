@@ -33,6 +33,8 @@ HorizontalFOVStart        | Horizontal FOV start for the lidar, in degrees
 HorizontalFOVEnd          | Horizontal FOV end for the lidar, in degrees
 VerticalFOVUpper          | Vertical FOV upper limit for the lidar, in degrees
 VerticalFOVLower          | Vertical FOV lower limit for the lidar, in degrees
+VerticalAngles            | Optional calibrated beam table: the elevation of every channel in degrees (positive up, in channel order). Replaces the even spread between VerticalFOVUpper and VerticalFOVLower and sets NumberOfChannels. See [Calibrated beam tables](#calibrated-beam-tables-ouster).
+AzimuthOffsets            | Optional: one azimuth offset per channel in degrees, clockwise seen from above (the sweep's direction), added to the sweep angle.
 X Y Z                     | Position of the lidar relative to the vehicle (in NED, in meters)                     
 Roll Pitch Yaw            | Orientation of the lidar relative to the vehicle  (in degrees, yaw-pitch-roll order to front vector +X)
 GenerateNoise             | Generate and add range-noise based on normal distribution if set to true
@@ -86,6 +88,32 @@ ExternalLocal             | When in external mode, if this is enabled the retrie
     }
 }
 ```
+
+## Calibrated beam tables (Ouster)
+
+Real lidars rarely space their channels evenly. `VerticalAngles` gives the elevation of each
+channel and `AzimuthOffsets` the horizontal offset each channel fires at, as a sensor's calibration
+reports them. For an Ouster sensor these are the `beam_altitude_angles` and `beam_azimuth_angles` of
+its metadata, unchanged: Ouster and HERCULES both sweep clockwise seen from above, and Ouster fires
+each beam at the encoder angle minus its beam azimuth angle, so a positive value turns the beam
+clockwise in both. Mount the lidar where the Ouster's lidar frame is (`os_lidar` in ouster-ros),
+which the encoder angle is measured from. The few millimetres between the lidar origin and the beam
+origins (`lidar_origin_to_beam_origin_mm`) are not modelled.
+
+```json
+"os1": {
+    "SensorType": 6, "Enabled": true,
+    "MeasurementsPerCycle": 1024, "RotationsPerSecond": 10, "Range": 120,
+    "VerticalAngles": [15.379, 13.236, 11.128, ..., -15.703],
+    "AzimuthOffsets": [3.12, 0.92, -1.32, -3.54, ...]
+}
+```
+
+The [URDF importer](urdf_import.md) writes these from an Ouster metadata file
+(`ouster_metadata: os1_metadata.json` on a lidar in its sensor file), together with the columns and
+rate of the sensor's `lidar_mode`. Point clouds keep HERCULES' column-major order, all channels of
+one azimuth step after the other, in the table's channel order. The GPU lidar (`SensorType` 8) spaces
+its channels evenly and does not use these keys.
 
 ## Casting rays on the GPU
 
