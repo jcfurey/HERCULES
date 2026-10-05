@@ -187,7 +187,8 @@ namespace airlib
                 "Vehicles": {
                     "Bot1": {"VehicleType": "PhysXCar",
                              "Urdf": {"Visuals": "bot.visuals.json", "RobotDescription": "bot.urdf",
-                                      "HideBaseMesh": true, "TwoSided": true}},
+                                      "HideBaseMesh": true, "TwoSided": true,
+                                      "SensorFrames": ["front_cam", 7, "lidar"]}},
                     "Drone1": {"VehicleType": "SimpleFlight"}
                 }
             })";
@@ -198,8 +199,10 @@ namespace airlib
             testAssert(bot.visuals == "bot.visuals.json" && bot.robot_description == "bot.urdf",
                        "Urdf paths parsed");
             testAssert(bot.hide_base_mesh && bot.two_sided, "Urdf flags parsed");
+            testAssert(bot.sensor_frames == std::vector<std::string>({ "front_cam", "lidar" }),
+                       "Urdf sensor frames parsed, non-strings skipped");
             const auto& drone = settings.vehicles.at("Drone1")->urdf;
-            testAssert(drone.visuals.empty() && !drone.hide_base_mesh && !drone.two_sided,
+            testAssert(drone.visuals.empty() && !drone.hide_base_mesh && !drone.two_sided && drone.sensor_frames.empty(),
                        "vehicles without Urdf keep the defaults");
         }
 

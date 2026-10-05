@@ -396,6 +396,9 @@ namespace airlib
                 std::string robot_description; //URDF robot_state_publisher publishes
                 bool hide_base_mesh = false; //hide the stock pawn mesh under the visuals
                 bool two_sided = false; //also draw back faces (open or badly wound meshes)
+                //sensors whose TF frames the robot description provides, so the
+                //ROS wrapper leaves them to robot_state_publisher
+                std::vector<std::string> sensor_frames;
             } urdf;
 
             VehicleSetting()
@@ -1035,6 +1038,7 @@ namespace airlib
                 vehicle_setting->urdf.robot_description = urdf_json.getString("RobotDescription", "");
                 vehicle_setting->urdf.hide_base_mesh = urdf_json.getBool("HideBaseMesh", vehicle_setting->urdf.hide_base_mesh);
                 vehicle_setting->urdf.two_sided = urdf_json.getBool("TwoSided", vehicle_setting->urdf.two_sided);
+                vehicle_setting->urdf.sensor_frames = urdf_json.getStringArray("SensorFrames");
             }
 
             return vehicle_setting;

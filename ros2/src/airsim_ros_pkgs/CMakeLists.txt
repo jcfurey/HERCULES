@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.5)
 project(airsim_ros_pkgs)
 
-set(CMAKE_BUILD_TYPE Debug)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo)
+endif()
 
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -47,7 +49,11 @@ add_subdirectory("${AIRSIM_ROOT}/cmake/AirLib" AirLib)
 add_subdirectory("${AIRSIM_ROOT}/cmake/MavLinkCom" MavLinkCom)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -Wnoexcept -Wstrict-null-sentinel")
+# appended, so flags given on the command line (sanitizers, ...) still apply
+string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  string(APPEND CMAKE_CXX_FLAGS " -Wnoexcept -Wstrict-null-sentinel")
+endif()
 set(CXX_EXP_LIB "-nostdinc++ -I/usr/include/c++/8 -I/usr/include/x86_64-linux-gnu/c++/8 -nodefaultlibs 
 -l/usr/lib/x86_64-linux-gnu/libc++.so -l/usr/lib/x86_64-linux-gnu/libc++abi.so
 -lm -lc -lgcc_s -lgcc
@@ -222,6 +228,17 @@ ament_export_dependencies(rosidl_default_runtime)
 ament_export_dependencies(airsim_interfaces)
 ament_export_dependencies(pcl_conversions)
 ament_export_dependencies(PCL)
+
+if(BUILD_TESTING)
+  find_package(launch_testing_ament_cmake REQUIRED)
+  # Stands in for the simulator's RPC servers so hercules_node can be tested
+  # without Unreal Engine (see the file's header).
+  add_executable(fake_airsim_server test/fake_airsim_server.cpp)
+  target_link_libraries(fake_airsim_server AirLib ${RPC_LIB} pthread)
+  add_launch_test(test/test_hero_bridge_launch.py
+    TIMEOUT 300
+    ENV FAKE_AIRSIM_SERVER=$<TARGET_FILE:fake_airsim_server>)
+endif()
 
 ament_export_include_directories(${INCLUDE_DIRS})
 ament_export_libraries(airsim_settings_parser hercules_settings_parser pd_position_controller_simple

@@ -1,6 +1,8 @@
 """Resolve URDF resource URIs (package://, model://, file://, relative)."""
 
 import os
+from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
 
 from .urdf_model import UrdfError
 
@@ -73,7 +75,8 @@ class PackageResolver:
                                 '%s=/path/to/%s)' % (name, uri, name, name))
             path = os.path.join(base, relative)
         elif uri.startswith('file://'):
-            path = uri[len('file://'):]
+            # file:///C:/x on Windows, file:///home/x elsewhere
+            path = url2pathname(unquote(urlparse(uri).path))
         else:
             path = os.path.join(self.urdf_dir, uri)
         path = os.path.abspath(path)

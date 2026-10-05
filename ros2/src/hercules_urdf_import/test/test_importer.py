@@ -2,6 +2,8 @@ import json
 import math
 import os
 import shutil
+from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
 
 from conftest import DESCRIPTION
 from hercules_urdf_import import import_robot, ImportOptions
@@ -48,6 +50,8 @@ def test_skid_robot_settings_and_frames(tmp_path):
     assert vehicle['PawnPath'] == 'UGVPawn'
     assert vehicle['Urdf']['HideBaseMesh'] is True
     assert vehicle['Urdf']['TwoSided'] is False
+    # the imu has no frame of its own: its data is in the body frame
+    assert vehicle['Urdf']['SensorFrames'] == ['front_cam', 'os1_64', 'sonar_front']
     assert os.path.isfile(vehicle['Urdf']['Visuals'])
     assert os.path.isfile(vehicle['Urdf']['RobotDescription'])
 
@@ -100,8 +104,9 @@ def test_output_urdf_is_static_and_rooted_at_the_body(tmp_path):
     assert all(j.type == 'fixed' for j in model.joints.values())
     assert model.link_poses()['base_footprint'].is_close(Transform(), 1e-12)
     for mesh in model.links['base_link'].visuals[1:]:
-        assert mesh.geometry.filename.startswith('file:///')
-        assert os.path.isfile(mesh.geometry.filename[len('file://'):])
+        uri = mesh.geometry.filename
+        assert uri.startswith('file:///')
+        assert os.path.isfile(url2pathname(unquote(urlparse(uri).path)))
 
 
 def test_visual_manifest(tmp_path):

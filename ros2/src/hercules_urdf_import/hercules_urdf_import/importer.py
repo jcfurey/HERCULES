@@ -18,6 +18,7 @@ import hashlib
 import json
 import math
 import os
+import pathlib
 import re
 import xml.etree.ElementTree as ET
 
@@ -213,7 +214,7 @@ def import_robot(options):
         raise UrdfError('the Multirotor sim mode does not support GPU lidars; '
                         'use --sim-mode hero or a CPU lidar')
 
-    cameras, sensor_settings, sensor_frames = {}, {}, []
+    cameras, sensor_settings, sensor_frames, framed_sensors = {}, {}, [], []
     for spec in sorted(specs, key=lambda s: (s.kind, s.name)):
         pose = None
         if spec.link is not None:
@@ -238,12 +239,14 @@ def import_robot(options):
             entry = sensor_mod.settings_entry(spec, settings_pose(pose), warnings)
         if spec.kind == 'camera':
             cameras[spec.name] = entry
+            framed_sensors.append(spec.name)
             sensor_frames.append((spec.name + '_body', spec.link, spec.offset))
             sensor_frames.append((spec.name + '_optical', spec.name + '_body',
                                   OPTICAL_FROM_BODY))
         else:
             sensor_settings[spec.name] = entry
             if spec.kind in ('lidar', 'gpulidar', 'distance'):
+                framed_sensors.append(spec.name)
                 sensor_frames.append((spec.name, spec.link, spec.offset))
         result.sensors.append({
             'name': spec.name, 'kind': spec.kind, 'link': spec.link,
@@ -355,7 +358,7 @@ def import_robot(options):
     if options.rewrite_mesh_uris:
         for mesh in robot.iter('mesh'):
             try:
-                mesh.set('filename', 'file://' + resolver.resolve(mesh.get('filename')))
+                mesh.set('filename', pathlib.Path(resolver.resolve(mesh.get('filename'))).as_uri())
             except UrdfError:
                 pass
     ET.SubElement(robot, 'link', {'name': body_frame})
@@ -385,6 +388,8 @@ def import_robot(options):
         'RobotDescription': ref(urdf_path),
         'HideBaseMesh': bool(options.hide_base_mesh),
         'TwoSided': bool(options.two_sided),
+        # the ROS wrapper leaves these sensors' TF frames to robot_state_publisher
+        'SensorFrames': sorted(framed_sensors),
     }
     if cameras:
         vehicle['Cameras'] = cameras
