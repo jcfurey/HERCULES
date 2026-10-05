@@ -5,7 +5,8 @@ fake_airsim_server answers the simulator's RPCs from a settings file, so
 this exercises hercules_node end to end without Unreal Engine: which
 vehicles each bridge serves, the frames its messages are stamped with, the
 TF tree (including a vehicle imported from a URDF, whose sensor frames come
-from robot_state_publisher), camera_info/image pairing, odometry and reset.
+from robot_state_publisher, and the frame of an Ouster sensor, which has no
+topics here), camera_info/image pairing, odometry and reset.
 """
 
 import json
@@ -18,6 +19,7 @@ import unittest
 
 from airsim_interfaces.srv import Reset
 from ament_index_python.packages import get_package_share_directory
+from geometry_msgs.msg import Quaternion
 from hercules_urdf_import import import_robot, ImportOptions
 import launch
 from launch.actions import ExecuteProcess, IncludeLaunchDescription
@@ -90,6 +92,13 @@ DRONE_SETTINGS = {
                 'range_down': {
                     'SensorType': 5, 'Enabled': True, 'MinDistance': 0.1, 'MaxDistance': 20,
                     'X': 0.0, 'Y': 0.0, 'Z': 0.1, 'Roll': 0.0, 'Pitch': -90.0, 'Yaw': 0.0,
+                },
+                # an Ouster lidar 0.3 m ahead, 0.2 m left and 0.4 m up, turned
+                # 30 deg right, pitched 20 deg down and rolled 10 deg right
+                'os_top': {
+                    'SensorType': 12, 'Enabled': True, 'HostAddress': '127.0.0.1',
+                    'HostPort': 7502,
+                    'X': 0.3, 'Y': -0.2, 'Z': -0.4, 'Roll': 10.0, 'Pitch': -20.0, 'Yaw': 30.0,
                 },
             },
         },
@@ -203,6 +212,20 @@ def rotate(q, v):
     return (vx + 2 * (y * cz - z * cy), vy + 2 * (z * cx - x * cz), vz + 2 * (x * cy - y * cx))
 
 
+def quaternion_from_euler(roll, pitch, yaw):
+    """Turn yaw about z, then pitch about y, then roll about x (degrees)."""
+    cr, sr = math.cos(math.radians(roll) / 2), math.sin(math.radians(roll) / 2)
+    cp, sp = math.cos(math.radians(pitch) / 2), math.sin(math.radians(pitch) / 2)
+    cy, sy = math.cos(math.radians(yaw) / 2), math.sin(math.radians(yaw) / 2)
+    return Quaternion(x=sr * cp * cy - cr * sp * sy, y=cr * sp * cy + sr * cp * sy,
+                      z=cr * cp * sy - sr * sp * cy, w=cr * cp * cy + sr * sp * sy)
+
+
+def flu(v):
+    """Turn vector v from x forward, y right, z down to x forward, y left, z up."""
+    return (v[0], -v[1], -v[2])
+
+
 class TestHeroBridges(unittest.TestCase):
 
     @classmethod
@@ -249,6 +272,30 @@ class TestHeroBridges(unittest.TestCase):
         for got, want in zip(axis, (0.0, 0.0, -1.0)):
             self.assertAlmostEqual(got, want, places=4)
         self.assertAlmostEqual(down.translation.z, -0.1, places=4)
+
+    def test_ouster_sensor_frame(self):
+        # hercules_node runs with an Ouster sensor in its settings ...
+        self.c.wait_for(NS + '/Drone1/ground_truth/odom_local')
+        # ... and gives it only the frame ouster_ros takes as its sensor_frame:
+        # the settings pose on the body, from AirSim's FRD frames to ROS's FLU
+        ouster = DRONE_SETTINGS['Vehicles']['Drone1']['Sensors']['os_top']
+        mount = self.c.lookup('Drone1/ground_truth/odom_local', 'Drone1/os_top')
+        self.assertEqual(self.c.static_parents('Drone1/os_top'),
+                         {'Drone1/ground_truth/odom_local'})
+        t = mount.translation
+        for got, want in zip((t.x, t.y, t.z), flu((ouster['X'], ouster['Y'], ouster['Z']))):
+            self.assertAlmostEqual(got, want, places=4)
+        frd = quaternion_from_euler(ouster['Roll'], ouster['Pitch'], ouster['Yaw'])
+        for axis in ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)):
+            expected = flu(rotate(frd, flu(axis)))
+            for got, want in zip(rotate(mount.rotation, axis), expected):
+                self.assertAlmostEqual(got, want, places=4)
+        # turned right and pitched down: the sensor's x axis points right and down
+        forward = rotate(mount.rotation, (1.0, 0.0, 0.0))
+        self.assertLess(forward[1], -0.4)
+        self.assertLess(forward[2], -0.3)
+        topics = [name for name, _ in self.c.node.get_topic_names_and_types() if 'os_top' in name]
+        self.assertEqual(topics, [])
 
     def test_wrapper_camera_tf_for_plain_vehicles(self):
         self.c.lookup('Drone1/ground_truth/odom_local', 'Drone1/front_center_optical')

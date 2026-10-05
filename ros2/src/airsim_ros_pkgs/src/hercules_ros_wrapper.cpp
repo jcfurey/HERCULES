@@ -476,6 +476,18 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
                     echo_cnt += 1;
                     break;
                 }
+                case SensorBase::SensorType::Ouster:
+                {
+                    // No topics: hercules_sensors_ouster's packets reach ROS through
+                    // ouster_ros, which only needs this frame for the sensor's pose.
+                    if (urdf_sensor_frames.count(sensor_name) == 0)
+                    {
+                        append_static_ouster_tf(vehicle_ros.get(), sensor_name, *static_cast<OusterSetting *>(sensor_setting.get()));
+                    }
+                    RCLCPP_INFO(nh_->get_logger(), "Ouster sensor '%s': set ouster_ros's sensor_frame to %s/%s",
+                                sensor_name.c_str(), curr_vehicle_name.c_str(), sensor_name.c_str());
+                    break;
+                }
                 default:
                 {
                     throw std::invalid_argument("Unexpected sensor type");
@@ -1913,6 +1925,18 @@ void AirsimROSWrapper::append_static_distance_tf(VehicleROS *vehicle_ros, const 
                                                               distance_setting.relative_pose.orientation);
     convert_tf_msg_to_ros(distance_tf_msg);
     vehicle_ros->static_tf_msg_vec_.emplace_back(distance_tf_msg);
+}
+
+void AirsimROSWrapper::append_static_ouster_tf(VehicleROS *vehicle_ros, const std::string &ouster_name, const OusterSetting &ouster_setting)
+{
+    // the Ouster sensor frame (os_sensor) at its settings pose, as a distance sensor's
+    const msr::airlib::Pose pose = ouster_setting.relativePose();
+    geometry_msgs::msg::TransformStamped ouster_tf_msg;
+    ouster_tf_msg.header.frame_id = vehicle_ros->odom_frame_id_;
+    ouster_tf_msg.child_frame_id = vehicle_ros->vehicle_name_ + "/" + ouster_name;
+    ouster_tf_msg.transform = get_transform_msg_from_airsim(pose.position, pose.orientation);
+    convert_tf_msg_to_ros(ouster_tf_msg);
+    vehicle_ros->static_tf_msg_vec_.emplace_back(ouster_tf_msg);
 }
 
 bool AirsimROSWrapper::serves_vehicle(const VehicleSetting &vehicle_setting) const

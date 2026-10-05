@@ -148,6 +148,7 @@ class AirsimROSWrapper
     using DistanceSetting = msr::airlib::AirSimSettings::DistanceSetting;
     using GPULidarSetting = msr::airlib::AirSimSettings::GPULidarSetting;
     using EchoSetting = msr::airlib::AirSimSettings::EchoSetting;
+    using OusterSetting = msr::airlib::AirSimSettings::OusterSetting;
     using VehicleSetting = msr::airlib::AirSimSettings::VehicleSetting;
     using ImageRequest = msr::airlib::ImageCaptureBase::ImageRequest;
     using ImageResponse = msr::airlib::ImageCaptureBase::ImageResponse;
@@ -337,6 +338,7 @@ private:
     void append_static_gpulidar_tf(VehicleROS *vehicle_ros, const std::string &gpulidar_name, const msr::airlib::GPULidarSimpleParams &gpulidar_setting);
     void append_static_echo_tf(VehicleROS *vehicle_ros, const std::string &echo_name, const msr::airlib::EchoSimpleParams &echo_setting);
     void append_static_distance_tf(VehicleROS *vehicle_ros, const std::string &distance_name, const msr::airlib::DistanceSimpleParams &distance_setting);
+    void append_static_ouster_tf(VehicleROS *vehicle_ros, const std::string &ouster_name, const OusterSetting &ouster_setting);
 
     // In the Hero sim mode each wrapper instance serves one vehicle family
     // (multirotors on 41451, cars on 41452), chosen by VehicleType.

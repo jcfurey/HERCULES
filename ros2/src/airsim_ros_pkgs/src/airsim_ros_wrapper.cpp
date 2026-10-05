@@ -393,6 +393,21 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
                     echo_cnt += 1;
                     break;
                 }
+                case SensorBase::SensorType::Ouster: {
+                    // No topics: hercules_sensors_ouster's packets reach ROS through
+                    // ouster_ros, which only needs this frame for the sensor's pose.
+                    const msr::airlib::Pose ouster_pose = static_cast<msr::airlib::AirSimSettings::OusterSetting*>(sensor_setting.get())->relativePose();
+                    geometry_msgs::msg::TransformStamped ouster_tf;
+                    ouster_tf.header.stamp = nh_->now();
+                    ouster_tf.header.frame_id = vehicle_ros->odom_frame_id_;
+                    ouster_tf.child_frame_id = curr_vehicle_name + "/" + sensor_name;
+                    ouster_tf.transform = get_transform_msg_from_airsim(ouster_pose.position, ouster_pose.orientation);
+                    convert_tf_msg_to_ros(ouster_tf);
+                    vehicle_ros->static_tf_msg_vec_.emplace_back(ouster_tf);
+                    RCLCPP_INFO(nh_->get_logger(), "Ouster sensor '%s': set ouster_ros's sensor_frame to %s",
+                                sensor_name.c_str(), ouster_tf.child_frame_id.c_str());
+                    break;
+                }
                 default: {
                     throw std::invalid_argument("Unexpected sensor type");
                 }
