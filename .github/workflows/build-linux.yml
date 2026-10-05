@@ -1,7 +1,16 @@
 name: Build
 
 on:
-  - pull_request
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build_linux:
@@ -27,3 +36,23 @@ jobs:
 
     - name: Verify MavLink built
       run: ./build_release/output/bin/MavLinkTest --help
+
+    - name: AirLib unit tests
+      run: ./build_release/output/bin/AirLibUnitTests
+
+    # Import every test robot, then check the output with AirLib's own
+    # settings parser and Euler conventions.
+    - name: URDF import cross-check
+      run: |
+        sudo apt-get install -y -qq python3-yaml
+        fixtures=ros2/src/hercules_urdf_import/test/fixtures/test_robot_description
+        cd ros2/src/hercules_urdf_import
+        out="$RUNNER_TEMP/urdf_import"
+        python3 -m hercules_urdf_import ../../../$fixtures/urdf/skid_robot.urdf --name Husky3 --drive skid -o "$out"
+        python3 -m hercules_urdf_import ../../../$fixtures/urdf/ackermann_car.urdf --name Car1 --drive ackermann \
+          --sensors ../../../$fixtures/config/ackermann_sensors.yaml -o "$out"
+        python3 -m hercules_urdf_import ../../../$fixtures/urdf/quadrotor.urdf --name Drone3 --drive multirotor \
+          --joint gimbal_pitch=0.3 --joint gimbal_yaw=-0.7 -o "$out"
+        python3 -m hercules_urdf_import ../../../$fixtures/urdf/mobile_manipulator.urdf --name Arm1 --drive skid -o "$out"
+        cd -
+        ./build_release/output/bin/AirLibUnitTests --urdf-import-dir "$out"
